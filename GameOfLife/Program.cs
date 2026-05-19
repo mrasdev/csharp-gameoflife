@@ -4,7 +4,7 @@
     {
         static void Main(string[] args)
         {
-            Console.WriteLine("Hello, World!");
+            GridBuffer gridBuffer = new(width: 100, height: 100, torodial:false);
         }
     }
 }
