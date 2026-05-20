@@ -6,18 +6,13 @@ namespace GameOfLife;
 
 internal class SimulationEngine
 {
-    public int Width { get; }
-    public int Height { get; }
-
     private GridBuffer _currentGrid;
     private GridBuffer _nextGrid;
 
-    private Action _updateMethod;  // cache the method to avoid virtual calls on every update
+    private readonly Action _updateMethod;  // cache the method to avoid virtual calls on every update
 
     public SimulationEngine(GameSettings settings)
     {
-        Width = settings.Width;
-        Height = settings.Height;
         _currentGrid = new GridBuffer(settings.Width, settings.Height, settings.Toroidal);
         _nextGrid = new GridBuffer(settings.Width, settings.Height, settings.Toroidal);
         _updateMethod = (settings.RuleType, settings.NeighbourType) switch
@@ -47,8 +42,8 @@ internal class SimulationEngine
         // 1. Class fields and properties are stored on the heap where local variables are stored on the (fast) stack. 
         // 2. With immutable local variables, loops can be unrolled by the JIT compiler.
         // 3. Using a local int instead of a complex object which needs to be put into a "closure" can improve performance.
-        int width = Width;
-        int height = Height;
+        int width = _currentGrid.Width;
+        int height = _currentGrid.Height;
         GridBuffer currentGrid = _currentGrid;  // we need the whole grid to count neighbours
         bool[] currentCells = currentGrid.Cells;
         bool[] nextCells = _nextGrid.Cells;  // we only need a reference to the array to store the next state
@@ -57,7 +52,7 @@ internal class SimulationEngine
         Parallel.For(0, height, y =>
         {
             int rowOffset = y * width;
-            for (int x = 0; x < Width; x++)
+            for (int x = 0; x < width; x++)
             {
                 int gridIndex = rowOffset + x;
                 int liveNeighbours = strategy.CountNeighbours(currentGrid, x, y);
