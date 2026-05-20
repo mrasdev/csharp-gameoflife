@@ -1,30 +1,14 @@
-﻿using GameOfLife.CellurlarRules;
-using GameOfLife.Interfaces;
-using GameOfLife.Neighbourhoods;
-using System.Text.Json;
-using System.Text.Json.Serialization;
+﻿namespace GameOfLife;
 
-namespace GameOfLife
+internal class Program
 {
-    internal class Program
+    static void Main(string[] args)
     {
-        static void Main(string[] args)
-        {
-            var jsonOptions = new JsonSerializerOptions
-            {
-                Converters = { new JsonStringEnumConverter() },
-                AllowTrailingCommas = true
-            };
+        string settingsPath = args.Length > 0 ? args[0] : "settings.json";
+        GameSettings settings = GameSettings.LoadFromJson(settingsPath);
+        settings.PrintSettings();  // for debugging purposes
 
-            // 2. JSON-Datei einlesen
-            string jsonText = File.ReadAllText("settings.json");
-            GameSettings loadedSettings = JsonSerializer.Deserialize<GameSettings>(jsonText, jsonOptions) ?? new GameSettings();
-
-            // 3. Engine mit den geladenen Einstellungen füttern
-            SimulationEngine engine = new SimulationEngine(loadedSettings);
-
-            // 4. Spiel starten
-            engine.UpdatePattern();
-        }
+        //SimulationEngine engine = new(settings);
+        //engine.UpdatePattern();
     }
 }
