@@ -13,8 +13,8 @@ internal class SimulationEngine
     {
         Width = width;
         Height = height;
-        _currentGrid = new GridBuffer(width, height, torodial: true);
-        _nextGrid = new GridBuffer(width, height, torodial: true);
+        _currentGrid = new GridBuffer(width, height, toroidal: true);
+        _nextGrid = new GridBuffer(width, height, toroidal: true);
     }
 
     public void UpdatePattern()

@@ -9,26 +9,30 @@ namespace GameOfLife;
 
 internal class GridBuffer
 {
+    // These properties must be readonly, as they will be accessed frequently during neighbour counting (JIT optimization)
     public int Width { get; }
     public int Height { get; }
-    public bool Torodial { get; }
+    public bool Toroidal { get; }
+
     private readonly bool[] _cells;  // true = alive, false = dead
     private INeighbourhoodStrategy _strategy;
 
-    public GridBuffer(int width, int height, bool torodial)
+    public GridBuffer(int width, int height, bool toroidal)
     {
         Width = width;
         Height = height;
-        Torodial = torodial;
+        Toroidal = toroidal;
         _cells = new bool[Width * Height];
         _strategy = new MooreNeighbourhood(this);  // default to Moore neighbourhood, can be changed later
     }
 
-    public bool this[int x, int y]  // indexer to access the grid conveniently by x and y
+    public bool this[int x, int y]  // indexer to access the grid conveniently by x and y (but slower)
     {
         get => _cells[y * Width + x];
         set => _cells[y * Width + x] = value;
     }
+
+    public ReadOnlySpan<bool> Cells => _cells;  // same performance as exposing the array directly, but safer
 
     public void SetNeighbourhoodStrategy(INeighbourhoodStrategy strategy)
     {
