@@ -1,4 +1,5 @@
-﻿using GameOfLife.Neighbourhoods;
+﻿using GameOfLife.CellurlarRules;
+using GameOfLife.Neighbourhoods;
 
 namespace GameOfLife;
 
