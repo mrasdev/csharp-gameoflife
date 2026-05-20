@@ -15,14 +15,7 @@ internal class SimulationEngine
     {
         _currentGrid = new GridBuffer(settings.Width, settings.Height, settings.Toroidal);
         _nextGrid = new GridBuffer(settings.Width, settings.Height, settings.Toroidal);
-        _updateMethod = (settings.RuleType, settings.NeighbourType) switch
-        {
-            (CellularRuleType.Conway, NeighbourhoodType.Moore) => UpdatePatternGeneric<ConwayRule, MooreNeighbourhood>,
-            (CellularRuleType.Conway, NeighbourhoodType.VonNeumann) => UpdatePatternGeneric<ConwayRule, VonNeumannNeighbourhood>,
-            (CellularRuleType.HighLife, NeighbourhoodType.Moore) => UpdatePatternGeneric<HighLifeRule, MooreNeighbourhood>,
-            (CellularRuleType.HighLife, NeighbourhoodType.VonNeumann) => UpdatePatternGeneric<HighLifeRule, VonNeumannNeighbourhood>,
-            _ => throw new ArgumentException("Invalid combination of rule and neighbourhood.")
-        };
+        _updateMethod = ResolveUpdateMethod(settings.RuleType, settings.NeighbourType);
     }
 
     public void UpdatePattern()
@@ -30,13 +23,27 @@ internal class SimulationEngine
         _updateMethod();
     }
 
+    private Action ResolveUpdateMethod(CellularRuleType ruleType, NeighbourhoodType neighbourType) =>
+    (ruleType, neighbourType) switch
+    {
+        (CellularRuleType.Conway, NeighbourhoodType.Moore) =>
+            UpdatePatternGeneric<ConwayRule, MooreNeighbourhood>,
+        (CellularRuleType.Conway, NeighbourhoodType.VonNeumann) =>
+            UpdatePatternGeneric<ConwayRule, VonNeumannNeighbourhood>,
+        (CellularRuleType.HighLife, NeighbourhoodType.Moore) =>
+            UpdatePatternGeneric<HighLifeRule, MooreNeighbourhood>,
+        (CellularRuleType.HighLife, NeighbourhoodType.VonNeumann) =>
+            UpdatePatternGeneric<HighLifeRule, VonNeumannNeighbourhood>,
+        _ => throw new ArgumentException("Invalid combination of rule and neighbourhood.")
+    };
+
     private void UpdatePatternGeneric<TRule, TStrategy>()
         // because of the struct constraints, the JIT compiler can inline the method and optimize it heavily
         where TRule : struct, ICellularRule
         where TStrategy : struct, INeighbourhoodStrategy
     {
         // create an instance without heap allocation, since it's a struct
-        TRule rule = default;  
+        TRule rule = default;
         TStrategy strategy = default;
 
         // 1. Class fields and properties are stored on the heap where local variables are stored on the (fast) stack. 
