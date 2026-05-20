@@ -6,7 +6,7 @@ using GameOfLife.Interfaces;
 
 namespace GameOfLife.CellurlarRules;
 
-internal class ConwayRule : ICellularRule
+internal struct ConwayRule : ICellularRule  // struct is used to avoid heap allocation
 {
     public string RuleName => "Conway's Game of Life";
 

@@ -4,14 +4,11 @@ using GameOfLife.Interfaces;
 
 namespace GameOfLife.Neighbourhoods;
 
-internal class VonNeumannNeighbourhood : INeighbourhoodStrategy
+internal struct VonNeumannNeighbourhood : INeighbourhoodStrategy
 {
     private readonly GridBuffer _grid;
 
-    public VonNeumannNeighbourhood(GridBuffer grid)
-    {
-        _grid = grid;
-    }
+    public VonNeumannNeighbourhood(GridBuffer grid) => _grid = grid;
 
     public int CountNeighbours(int x, int y)
     {

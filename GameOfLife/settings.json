@@ -1,0 +1,7 @@
+{
+  "Width": 1024,
+  "Height": 768,
+  "Toroidal": true,
+  "RuleType": "Conway",
+  "StrategyType": "Moore"
+}

@@ -2,5 +2,5 @@
 
 internal interface INeighbourhoodStrategy
 {
-    int CountNeighbours(int x, int y);
+    int CountNeighbours(GridBuffer grid, int x, int y);
 }

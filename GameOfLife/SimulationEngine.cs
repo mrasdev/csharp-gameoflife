@@ -1,46 +1,69 @@
-﻿using System.Collections.Concurrent;
+﻿using GameOfLife.CellurlarRules;
+using GameOfLife.Interfaces;
+using GameOfLife.Neighbourhoods;
 
 namespace GameOfLife;
 
 internal class SimulationEngine
 {
-    private GridBuffer _currentGrid;
-    private GridBuffer _nextGrid;
     public int Width { get; }
     public int Height { get; }
 
-    public SimulationEngine(int width, int height)
+    private GridBuffer _currentGrid;
+    private GridBuffer _nextGrid;
+
+    private Action _updateMethod;  // cache the method to avoid virtual calls on every update
+
+    public SimulationEngine(GameSettings settings)
     {
-        Width = width;
-        Height = height;
-        _currentGrid = new GridBuffer(width, height, toroidal: true);
-        _nextGrid = new GridBuffer(width, height, toroidal: true);
+        Width = settings.Width;
+        Height = settings.Height;
+        _currentGrid = new GridBuffer(settings.Width, settings.Height, settings.Toroidal);
+        _nextGrid = new GridBuffer(settings.Width, settings.Height, settings.Toroidal);
+        _updateMethod = (settings.RuleType, settings.NeighbourType) switch
+        {
+            (CellularRuleType.Conway, NeighbourhoodType.Moore) => UpdatePatternGeneric<ConwayRule, MooreNeighbourhood>,
+            (CellularRuleType.Conway, NeighbourhoodType.VonNeumann) => UpdatePatternGeneric<ConwayRule, VonNeumannNeighbourhood>,
+            (CellularRuleType.HighLife, NeighbourhoodType.Moore) => UpdatePatternGeneric<HighLifeRule, MooreNeighbourhood>,
+            (CellularRuleType.HighLife, NeighbourhoodType.VonNeumann) => UpdatePatternGeneric<HighLifeRule, VonNeumannNeighbourhood>,
+            _ => throw new ArgumentException("Invalid combination of rule and neighbourhood.")
+        };
     }
 
     public void UpdatePattern()
     {
-        // Create a partitioner to divide the rows of the grid into chunks for optimized parallel processing
-        var rowPartitioner = Partitioner.Create(0, Height);
+        _updateMethod();
+    }
 
-        Parallel.ForEach(rowPartitioner, range =>
+    private void UpdatePatternGeneric<TRule, TStrategy>()
+        // because of the struct constraints, the JIT compiler can inline the method and optimize it heavily
+        where TRule : struct, ICellularRule
+        where TStrategy : struct, INeighbourhoodStrategy
+    {
+        // create an instance without heap allocation, since it's a struct
+        TRule rule = default;  
+        TStrategy strategy = default;
+
+        // 1. Class fields and properties are stored on the heap where local variables are stored on the (fast) stack. 
+        // 2. With immutable local variables, loops can be unrolled by the JIT compiler.
+        // 3. Using a local int instead of a complex object which needs to be put into a "closure" can improve performance.
+        int width = Width;
+        int height = Height;
+        GridBuffer currentGrid = _currentGrid;  // we need the whole grid to count neighbours
+        bool[] currentCells = currentGrid.Cells;
+        bool[] nextCells = _nextGrid.Cells;  // we only need a reference to the array to store the next state
+
+        // since the grid is stored in a linear array, one row per thread is contiguous data in memory
+        Parallel.For(0, height, y =>
         {
-            for (int y = range.Item1; y < range.Item2; y++)
+            int rowOffset = y * width;
+            for (int x = 0; x < Width; x++)
             {
-                for (int x = 0; x < Width; x++)
-                {
-                    int liveNeighbors = _currentGrid.CountLivingNeighbours(x, y);
-                    if (_currentGrid[x,y]) // TODO: replace with external rule
-                    {
-                        _nextGrid[x,y] = (liveNeighbors == 2 || liveNeighbors == 3);
-                    }
-                    else
-                    {
-                        _nextGrid[x,y] = (liveNeighbors == 3);
-                    }
-                }
+                int gridIndex = rowOffset + x;
+                int liveNeighbours = strategy.CountNeighbours(currentGrid, x, y);
+                nextCells[gridIndex] = rule.CalculateNextState(currentCells[gridIndex], liveNeighbours);
             }
         });
-
         (_nextGrid, _currentGrid) = (_currentGrid, _nextGrid);  // pointer swap to avoid copying arrays
     }
 }

@@ -6,7 +6,7 @@ using GameOfLife.Interfaces;
 
 namespace GameOfLife.CellurlarRules;
 
-internal class HighLifeRule : ICellularRule
+internal struct HighLifeRule : ICellularRule  // struct is used to avoid heap allocation
 {
     public string RuleName => "HighLife";
 
