@@ -6,14 +6,14 @@ namespace GameOfLife.Neighbourhoods;
 
 internal struct MooreNeighbourhood : INeighbourhoodStrategy
 {
-    public int CountNeighbours(GridBuffer grid,int x, int y)
+    public readonly int CountNeighbours(GridBuffer grid, int x, int y)
     {
         return grid.Toroidal  // Will be optimized by the JIT compiler to a constant branch
             ? CountNeighboursToroidal(grid, x, y)
             : CountNeighboursBordered(grid, x, y);
     }
 
-    private int CountNeighboursToroidal(GridBuffer grid, int x, int y)
+    private static int CountNeighboursToroidal(GridBuffer grid, int x, int y)
     {
         // Modulo is slow, we will use conditional logic to wrap around the edges
         int leftX = (x == 0) ? grid.Width - 1 : x - 1;
@@ -40,7 +40,8 @@ internal struct MooreNeighbourhood : INeighbourhoodStrategy
 
         return count;
     }
-    private int CountNeighboursBordered(GridBuffer grid, int x, int y)
+
+    private static int CountNeighboursBordered(GridBuffer grid, int x, int y)
     {
         // Limit the neighbour coordinates to the grid boundaries to avoid out-of-bounds access
         int leftX = x <= 0 ? x : x - 1;
