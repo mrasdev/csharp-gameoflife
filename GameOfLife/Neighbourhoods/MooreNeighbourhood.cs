@@ -16,11 +16,11 @@ internal class MooreNeighbourhood : INeighbourhoodStrategy
     public int CountNeighbours(int x, int y)
     {
         return _grid.Toroidal  // Will be optimized by the JIT compiler to a constant branch
-            ? CountNeighboursTorodial(x, y)
+            ? CountNeighboursToroidal(x, y)
             : CountNeighboursBordered(x, y);
     }
 
-    private int CountNeighboursTorodial(int x, int y)
+    private int CountNeighboursToroidal(int x, int y)
     {
         // Modulo is slow, we will use conditional logic to wrap around the edges
         int leftX = (x == 0) ? _grid.Width - 1 : x - 1;
