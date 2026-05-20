@@ -1,5 +1,4 @@
-﻿// Provide a grid of booleans to store the living status of cells and a method to get the number
-// of living neighbours of a cell.
+﻿// Provide a grid of booleans to store the living status of cells.
 
 namespace GameOfLife;
 
