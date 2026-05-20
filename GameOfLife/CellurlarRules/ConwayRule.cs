@@ -8,7 +8,7 @@ namespace GameOfLife.CellurlarRules;
 
 internal struct ConwayRule : ICellularRule  // struct is used to avoid heap allocation
 {
-    public string RuleName => "Conway's Game of Life";
+    public readonly string RuleName => "Conway's Game of Life";
 
     // Using bit masks to represent the rules for survival and birth:
     // 76543210 <- number of living neighbours
@@ -17,7 +17,7 @@ internal struct ConwayRule : ICellularRule  // struct is used to avoid heap allo
     // 00001100 <- a cell survives if it has 2 or 3 neighbours (bits 2 and 3)
     private const int SurviveMask = (1 << 2) | (1 << 3); 
 
-    public bool CalculateNextState(bool currentState, int livingNeighbours)
+    public readonly bool CalculateNextState(bool currentState, int livingNeighbours)
     {
         // Move the bit 1 to the left by the number of neighbors and check with a bitwise AND against the mask.
         int neighbourBit = 1 << livingNeighbours;
