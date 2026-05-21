@@ -6,10 +6,15 @@ internal class Program
     {
         string settingsPath = args.Length > 0 ? args[0] : "settings.json";
         GameSettings settings = GameSettings.LoadFromJson(settingsPath);
-        // settings.PrintSettings();  // for debugging purposes
+        //settings.PrintSettings();  // for debugging purposes
+        //Environment.Exit(0);
 
+        bool[] pattern = settings.UseRandomPattern
+            ? PatternFactory.CreateRandom(settings.Width, settings.Height, settings.Density)
+            : PatternFactory.LoadFromRleFile(settings.RlePath);
         SimulationEngine engine = new(settings);
-        ConsoleRenderer renderer = new(engine, targetFps: 5);
+        engine.SetCells(pattern);
+        ConsoleRenderer renderer = new(engine, targetFps: settings.FpsRate);
         renderer.Start();
 
         while (true)

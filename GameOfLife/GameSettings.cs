@@ -13,6 +13,10 @@ internal class GameSettings
     public bool Toroidal { get; set; } = true;
     public CellularRuleType RuleType { get; set; } = CellularRuleType.Conway;
     public NeighbourhoodType NeighbourType { get; set; } = NeighbourhoodType.Moore;
+    public bool UseRandomPattern { get; set; } = true;  // If false, Rle file must be given
+    public double Density { get; set; } = 0.3;
+    public string RlePath { get; set; } = "";
+    public int FpsRate { get; set; } = 5;
 
     private static readonly JsonSerializerOptions JsonOptions = new()
     {

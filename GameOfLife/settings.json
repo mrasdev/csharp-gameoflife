@@ -1,7 +1,11 @@
 {
-  "Width": 100,
+  "Width": 80,
   "Height": 40,
   "Toroidal": true,
   "RuleType": "Conway",
-  "NeighbourType": "Moore"
+  "NeighbourType": "Moore",
+  "UseRandomPattern": true,
+  "Density": 0.3,
+  "RlePath": "",
+  "FpsRate": 5
 }

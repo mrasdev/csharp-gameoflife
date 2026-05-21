@@ -52,6 +52,11 @@ internal class SimulationEngine
         });
     }
 
+    public void SetCells(bool[] cells)
+    {
+        _currentGrid.SetCells(cells);
+    }
+
     private Action ResolveUpdateMethod(CellularRuleType ruleType, NeighbourhoodType neighbourType) =>
     (ruleType, neighbourType) switch
     {

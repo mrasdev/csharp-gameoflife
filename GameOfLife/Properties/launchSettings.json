@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "GameOfLife": {
+      "commandName": "Project",
+      "commandLineArgs": "../../../settings.json"
+    }
+  }
+}
