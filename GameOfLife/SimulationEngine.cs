@@ -23,6 +23,21 @@ internal class SimulationEngine
         _updateMethod();
     }
 
+    public void CopySnapshot(bool[] targetCells, int viewWidth, int viewHeight)
+    {
+        bool[] currentCells = _currentGrid.Cells;
+        int gridWidth = _currentGrid.Width;  // assure a constant value (for JIT optimization) and avoid closures in the loop
+        int limitX = Math.Min(viewWidth, _currentGrid.Width);
+        int limitY = Math.Min(viewHeight, _currentGrid.Height);
+
+        Parallel.For(0, limitY, y =>
+        {
+            int sourceOffset = y * gridWidth;
+            int targetOffset = y * viewWidth;
+            Array.Copy(currentCells, sourceOffset, targetCells, targetOffset, limitX);
+        });
+    }
+
     private Action ResolveUpdateMethod(CellularRuleType ruleType, NeighbourhoodType neighbourType) =>
     (ruleType, neighbourType) switch
     {
