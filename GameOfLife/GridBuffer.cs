@@ -24,4 +24,11 @@ internal class GridBuffer
         get => Cells[y * Width + x];
         set => Cells[y * Width + x] = value;
     }
+
+    public void SetCells(bool[] cells)
+    {
+        if (cells.Length != Cells.Length)
+            throw new ArgumentException("Cells size is different to grid size!");
+        Array.Copy(cells, Cells, cells.Length);
+    }
 }
