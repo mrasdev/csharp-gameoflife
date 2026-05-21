@@ -1,10 +1,25 @@
-﻿using System.Reflection.Metadata.Ecma335;
+﻿// Create random pattern or read RLE file and return pattern. 
+// RLE: Width and Height in settings are set, too. There are overloads to replace a pattern
+// or insert filedata into an existing pattern.
+
 using System.Text;
 
 namespace GameOfLife;
 
-internal class PatternFactory
+internal static class Pattern
 {
+    public static bool[] GetCells(GameSettings settings)
+    {
+        if (settings.UseRandomPattern)
+        {
+            return CreateRandom(settings.Width, settings.Height, settings.Density);
+        }
+        var (cells, width, heigth) = LoadFromRleFile(settings.RlePath);
+        settings.Width = width;
+        settings.Height = heigth;
+        return cells;
+    }
+
     public static bool[] CreateRandom(int width, int height, double density)
     {
         bool[] cells = new bool[width * height];
@@ -16,10 +31,12 @@ internal class PatternFactory
         return cells;
     }
 
-    public static bool[] LoadFromRleFile(string filePath, bool[]? cells, int width, int height, int startX, int startY)
     // Comment starts with #: #N Glider
     // Header starts with x or y: x = 3, y = 3, rule = B3/S23
     // Pattern: o: live, b: dead, $: line break, !: EOF and multiplicators like 42o
+    public static (bool[] Cells, int Width, int Height) LoadFromRleFile(
+        string filePath, bool[]? cells, int width, int height, int startX, int startY)
+    // insert RLE pattern into cells at (startX, startY)
     {
         string[] lines = File.ReadAllLines(filePath);
         StringBuilder sb = new();
@@ -31,31 +48,35 @@ internal class PatternFactory
             if (string.IsNullOrEmpty(line) || line.StartsWith('#')) continue;
             if (!headerFound && line.Contains('x') && line.Contains('y'))
             {
-                ParseRleHeader(line, out width, out height);
+                ParseRleHeader(line, out int headerWidth, out int headerHeight);
                 headerFound = true;
+                width = width == 0 ? headerWidth : width;
+                height = height == 0 ? headerHeight : height;
                 continue;
             }
             sb.Append(line);
         }
+
         if (width == 0) throw new ArgumentNullException(nameof(width));
         if (height == 0) throw new ArgumentNullException(nameof(height));
         cells ??= new bool[width * height];
         if (cells.Length != width * height) throw new ArgumentException("Pattern size mismatch");
         return ParseRleGrid(sb.ToString(), cells, width, height, startX, startY);
     }
-    public static bool[] LoadFromRleFile(string filePath)
+    public static (bool[] Cells, int Width, int Height) LoadFromRleFile(string filePath)
     // build new pattern from scratch
     {
         return LoadFromRleFile(filePath, cells: null, width: 0, height: 0, startX: 0, startY: 0);
     }
 
-    public static bool[] LoadFromRleFile(string filePath, bool[] cells, int width, int height)
+    public static (bool[] Cells, int Width, int Height) LoadFromRleFile(string filePath, bool[] cells, int width, int height)
     // replace existing pattern
     {
         return LoadFromRleFile(filePath, cells, width, height, startX: 0, startY: 0);
     }
 
-    private static bool[] ParseRleGrid(string gridData, bool[] cells, int width, int height, int startX, int startY)
+    private static (bool[] Cells, int Width, int Height) ParseRleGrid(
+        string gridData, bool[] cells, int width, int height, int startX, int startY)
     {
         int currentX = startX;
         int currentY = startY;
@@ -89,7 +110,7 @@ internal class PatternFactory
             else if (c == '!')  // end of file
                 break;
         }
-        return cells;
+        return (cells, width, height);
     }
 
     private static void ParseRleHeader(string headerLine, out int width, out int height)

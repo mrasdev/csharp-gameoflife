@@ -9,11 +9,9 @@ internal class Program
         //settings.PrintSettings();  // for debugging purposes
         //Environment.Exit(0);
 
-        bool[] pattern = settings.UseRandomPattern
-            ? PatternFactory.CreateRandom(settings.Width, settings.Height, settings.Density)
-            : PatternFactory.LoadFromRleFile(settings.RlePath);
+        bool[] cells = Pattern.GetCells(settings);
         SimulationEngine engine = new(settings);
-        engine.SetCells(pattern);
+        engine.SetCells(cells);
         ConsoleRenderer renderer = new(engine, targetFps: settings.FpsRate);
         renderer.Start();
 
