@@ -64,9 +64,9 @@ internal class ConsoleRenderer
         }
     }
 
-    private StringBuilder DrawFrame()
+    private StringBuilder GetPitch()
     {
-        StringBuilder sb = new(_currentWidth * _currentHeight);
+        StringBuilder sb = new(_currentWidth * (_currentHeight + 1));  // pitch + statusline
         for (int y = 0; y < _currentHeight; y++)
         {
             int rowOffset = y * _currentWidth;
@@ -77,15 +77,22 @@ internal class ConsoleRenderer
             }
             sb.AppendLine();
         }
+        sb.AppendLine();
         return sb;
     }
 
     private void WriteScreen()
     {
         Console.SetCursorPosition(0, 0);
-        StringBuilder sb = DrawFrame();
-        sb.AppendLine();
+        StringBuilder sb = GetPitch();
+        long genCount = _engine.GenerationCount;
+        long aliveCount = _engine.LivingCellsCount;
+        long calcRate = _engine.UpdatesPerSecond;
+        long threadRate = _engine.ThreadsPerSecond;
+        string statsLine = $"Gen {genCount,-8} | Alive {aliveCount,-8} | Calc {calcRate,-6}Hz | Thread {threadRate,-6}Hz | ";
+        statsLine += "ESC: quit, F1: step, F2: slow, F3: fast, F4: max";
+        if (statsLine.Length > _currentWidth) statsLine = statsLine.Substring(0, _currentWidth);
+        sb.Append(statsLine);
         Console.Write(sb.ToString());
-        // TODO: Add status line
     }
 }

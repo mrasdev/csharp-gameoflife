@@ -11,6 +11,20 @@ internal class SimulationEngine
 
     private readonly Action _updateMethod;  // cache the method to avoid virtual calls on every update
 
+    // for statistics display
+    private long _generationCount;
+    private long _updatesThisSecond;
+    private long _updatesPerSecond;
+    private long _threadsThisSecond;
+    private long _threadsPerSecond;
+    private long _livingCellsCount;
+    private DateTime _lastRateUpdate = DateTime.Now;
+
+    public long GenerationCount => Volatile.Read(ref _generationCount);
+    public long UpdatesPerSecond => Volatile.Read(ref _updatesPerSecond);
+    public long ThreadsPerSecond => Volatile.Read(ref _threadsPerSecond);
+    public long LivingCellsCount => Volatile.Read(ref _livingCellsCount);
+
     public SimulationEngine(GameSettings settings)
     {
         _currentGrid = new GridBuffer(settings.Width, settings.Height, settings.Toroidal);
@@ -53,9 +67,9 @@ internal class SimulationEngine
     };
 
     private void UpdatePatternGeneric<TRule, TStrategy>()
-        // because of the struct constraints, the JIT compiler can inline the method and optimize it heavily
-        where TRule : struct, ICellularRule
-        where TStrategy : struct, INeighbourhoodStrategy
+    // because of the struct constraints, the JIT compiler can inline the method and optimize it heavily
+    where TRule : struct, ICellularRule
+    where TStrategy : struct, INeighbourhoodStrategy
     {
         // create an instance without heap allocation, since it's a struct
         TRule rule = default;
@@ -69,18 +83,40 @@ internal class SimulationEngine
         GridBuffer currentGrid = _currentGrid;  // we need the whole grid to count neighbours
         bool[] currentCells = currentGrid.Cells;
         bool[] nextCells = _nextGrid.Cells;  // we only need a reference to the array to store the next state
+        long localLivingCells = 0;
 
         // since the grid is stored in a linear array, one row per thread is contiguous data in memory
         Parallel.For(0, height, y =>
         {
             int rowOffset = y * width;
+            long threadLivingCells = 0;  // counter per thread to avoid interlocked overhead
             for (int x = 0; x < width; x++)
             {
                 int gridIndex = rowOffset + x;
                 int liveNeighbours = strategy.CountNeighbours(currentGrid, x, y);
-                nextCells[gridIndex] = rule.CalculateNextState(currentCells[gridIndex], liveNeighbours);
+                bool nextState = rule.CalculateNextState(currentCells[gridIndex], liveNeighbours);
+                nextCells[gridIndex] = nextState;
+                if (nextState) threadLivingCells++;
             }
+            Interlocked.Add(ref localLivingCells, threadLivingCells);
+            Interlocked.Increment(ref _threadsThisSecond);
         });
         (_nextGrid, _currentGrid) = (_currentGrid, _nextGrid);  // pointer swap to avoid copying arrays
+        _livingCellsCount = localLivingCells;
+        Interlocked.Increment(ref _generationCount);
+        Interlocked.Increment(ref _updatesThisSecond);
+        TrackRates();
+    }
+    private void TrackRates()
+    {
+        DateTime now = DateTime.Now;
+        if ((now - _lastRateUpdate).TotalSeconds >= 1.0)
+        {
+            _updatesPerSecond = _updatesThisSecond;
+            _updatesThisSecond = 0;
+            _threadsPerSecond = _threadsThisSecond;
+            _threadsThisSecond = 0;
+            _lastRateUpdate = now;
+        }
     }
 }
