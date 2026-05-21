@@ -13,12 +13,8 @@ internal class Program
         SimulationEngine engine = new(settings);
         engine.SetCells(cells);
         ConsoleRenderer renderer = new(engine, targetFps: settings.FpsRate);
-        renderer.Start();
 
-        while (true)
-        {
-            engine.UpdatePattern();
-            // Thread.Sleep(100);  // slow down for testing
-        }
+        GameController controller = new(engine, renderer, settings);
+        controller.Start();
     }
 }

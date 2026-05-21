@@ -8,6 +8,7 @@ internal class SimulationEngine
 {
     private GridBuffer _currentGrid;
     private GridBuffer _nextGrid;
+    private bool[]? _initalCells;
 
     private readonly Action _updateMethod;  // cache the method to avoid virtual calls on every update
 
@@ -54,7 +55,29 @@ internal class SimulationEngine
 
     public void SetCells(bool[] cells)
     {
+        _initalCells = cells.ToArray();  // creates a clone
         _currentGrid.SetCells(cells);
+    }
+
+    public void Restart()
+    {
+        if (_initalCells == null) return;
+
+        _currentGrid.SetCells(_initalCells.ToArray());  
+        Array.Clear(_nextGrid.Cells, 0, _nextGrid.Cells.Length);
+
+        Interlocked.Exchange(ref _generationCount, 0);
+        Interlocked.Exchange(ref _updatesThisSecond, 0);
+        Interlocked.Exchange(ref _updatesPerSecond, 0);
+        Interlocked.Exchange(ref _threadsThisSecond, 0);
+        Interlocked.Exchange(ref _threadsPerSecond, 0);
+        long initialLivingCount = 0;
+        for (int i = 0; i < _initalCells.Length; i++)
+        {
+            if (_initalCells[i]) initialLivingCount++;
+        }
+        _livingCellsCount = initialLivingCount;
+        _lastRateUpdate = DateTime.Now;
     }
 
     private Action ResolveUpdateMethod(CellularRuleType ruleType, NeighbourhoodType neighbourType) =>
