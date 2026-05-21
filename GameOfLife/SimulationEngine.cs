@@ -6,6 +6,14 @@ namespace GameOfLife;
 
 internal class SimulationEngine
 {
+    public int Width => _currentGrid.Width;
+    public int Height => _currentGrid.Height;
+    public int MaxNeighbours { get; }
+    public long GenerationCount => Volatile.Read(ref _generationCount);
+    public long UpdatesPerSecond => Volatile.Read(ref _updatesPerSecond);
+    public long ThreadsPerSecond => Volatile.Read(ref _threadsPerSecond);
+    public long LivingCellsCount => Volatile.Read(ref _livingCellsCount);
+
     private GridBuffer _currentGrid;
     private GridBuffer _nextGrid;
     private bool[]? _initalCells;
@@ -21,16 +29,12 @@ internal class SimulationEngine
     private long _livingCellsCount;
     private DateTime _lastRateUpdate = DateTime.Now;
 
-    public long GenerationCount => Volatile.Read(ref _generationCount);
-    public long UpdatesPerSecond => Volatile.Read(ref _updatesPerSecond);
-    public long ThreadsPerSecond => Volatile.Read(ref _threadsPerSecond);
-    public long LivingCellsCount => Volatile.Read(ref _livingCellsCount);
-
     public SimulationEngine(GameSettings settings)
     {
         _currentGrid = new GridBuffer(settings.Width, settings.Height, settings.Toroidal);
         _nextGrid = new GridBuffer(settings.Width, settings.Height, settings.Toroidal);
         _updateMethod = ResolveUpdateMethod(settings.RuleType, settings.NeighbourType);
+        MaxNeighbours = NeighbourhoodFactory.GetMaxNeighbours(settings.NeighbourType);
     }
 
     public void UpdatePattern()
@@ -63,7 +67,7 @@ internal class SimulationEngine
     {
         if (_initalCells == null) return;
 
-        _currentGrid.SetCells(_initalCells.ToArray());  
+        _currentGrid.SetCells(_initalCells.ToArray());
         Array.Clear(_nextGrid.Cells, 0, _nextGrid.Cells.Length);
 
         Interlocked.Exchange(ref _generationCount, 0);

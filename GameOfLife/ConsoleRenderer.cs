@@ -66,7 +66,7 @@ internal class ConsoleRenderer
 
     private StringBuilder GetPitch()
     {
-        StringBuilder sb = new(_currentWidth * (_currentHeight));
+        StringBuilder sb = new(_currentWidth * _currentHeight);
         for (int y = 0; y < _currentHeight ; y++)  // last line is for stats
         {
             int rowOffset = y * _currentWidth;
@@ -88,9 +88,11 @@ internal class ConsoleRenderer
         long aliveCount = _engine.LivingCellsCount;
         long calcRate = _engine.UpdatesPerSecond;
         long threadRate = _engine.ThreadsPerSecond;
-        string statsLine = $"Gen {genCount,10:n0} | Alive {aliveCount,9:n0} | Calc {calcRate,6:n0} /s | Thread {threadRate,9:n0} /s | ";
+        long cellRate = threadRate * _engine.Width * _engine.MaxNeighbours;
+        string statsLine = $"Gen {genCount,10:n0} | Alive {aliveCount,9:n0} | Grids {calcRate,6:n0} /s | ";
+        statsLine += $"Threads {threadRate,9:n0} /s | Cells {cellRate,13:n0} /s | ";
         statsLine += $"Disp {_currentWidth,3} x {_currentHeight,3} | ";
-        // statsLine += "ESC: quit, F1: step, F2: slow, F3: fast, F4: max";
+        statsLine += $"Grid {_engine.Width,4} x {_engine.Height,4} | ";
         if (statsLine.Length > _currentWidth) statsLine = statsLine.Substring(0, _currentWidth);
         sb.Append(statsLine);
         Console.Write(sb.ToString());

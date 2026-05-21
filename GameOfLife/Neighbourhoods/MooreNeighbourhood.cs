@@ -6,6 +6,8 @@ namespace GameOfLife.Neighbourhoods;
 
 internal struct MooreNeighbourhood : INeighbourhoodStrategy
 {
+    public static int MaxNeighbours => 8;
+
     public readonly int CountNeighbours(GridBuffer grid, int x, int y)
     {
         return grid.Toroidal  // Will be optimized by the JIT compiler to a constant branch
