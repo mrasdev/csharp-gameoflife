@@ -18,7 +18,7 @@ internal class Program
         while (true)
         {
             engine.UpdatePattern();
-            Thread.Sleep(100);  // slow down for testing
+            // Thread.Sleep(100);  // slow down for testing
         }
     }
 }

@@ -66,8 +66,8 @@ internal class ConsoleRenderer
 
     private StringBuilder GetPitch()
     {
-        StringBuilder sb = new(_currentWidth * (_currentHeight + 1));  // pitch + statusline
-        for (int y = 0; y < _currentHeight; y++)
+        StringBuilder sb = new(_currentWidth * (_currentHeight));
+        for (int y = 0; y < _currentHeight ; y++)  // last line is for stats
         {
             int rowOffset = y * _currentWidth;
             for (int x = 0; x < _currentWidth; x++)
@@ -77,7 +77,6 @@ internal class ConsoleRenderer
             }
             sb.AppendLine();
         }
-        sb.AppendLine();
         return sb;
     }
 
@@ -89,8 +88,9 @@ internal class ConsoleRenderer
         long aliveCount = _engine.LivingCellsCount;
         long calcRate = _engine.UpdatesPerSecond;
         long threadRate = _engine.ThreadsPerSecond;
-        string statsLine = $"Gen {genCount,-8} | Alive {aliveCount,-8} | Calc {calcRate,-6}Hz | Thread {threadRate,-6}Hz | ";
-        statsLine += "ESC: quit, F1: step, F2: slow, F3: fast, F4: max";
+        string statsLine = $"Gen {genCount,10:n0} | Alive {aliveCount,9:n0} | Calc {calcRate,6:n0} /s | Thread {threadRate,9:n0} /s | ";
+        statsLine += $"Disp {_currentWidth,3} x {_currentHeight,3} | ";
+        // statsLine += "ESC: quit, F1: step, F2: slow, F3: fast, F4: max";
         if (statsLine.Length > _currentWidth) statsLine = statsLine.Substring(0, _currentWidth);
         sb.Append(statsLine);
         Console.Write(sb.ToString());
