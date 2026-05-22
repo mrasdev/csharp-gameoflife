@@ -1,6 +1,7 @@
-﻿// Create random pattern or read RLE file and return pattern. 
-// RLE: Width and Height in settings are set, too. There are overloads to replace a pattern
-// or insert filedata into an existing pattern.
+﻿// Create random pattern or read RLE file.
+// Random pattern: width and height from settings are used
+// RLE file: width and height from file are used and stored in settings
+// Naming: Cells = linear array, Grid = Cells + dimensions
 
 using GameOfLife.Models;
 using System.Text;
@@ -8,9 +9,9 @@ using System.Text;
 namespace GameOfLife.Core;
 
 public record Placement(
-    int Width = 0,
+    int Width = 0,      // dimensions of the whole grid
     int Height = 0,
-    int StartX = 0,
+    int StartX = 0,     // where to place the new grid from the RLE file
     int StartY = 0);
 
 public record Grid(
@@ -20,8 +21,6 @@ public record Grid(
 
 internal static class Pattern
 {
-    // return random cells: width and height from settings are used or
-    // return cells from RLE file: width and height from file are used and stored in settings
     public static bool[] GetCells(GameSettings settings)
     {
         if (settings.UseRandomPattern)
@@ -48,7 +47,7 @@ internal static class Pattern
     // Comment starts with #: e.g. #N Glider
     // Header starts with x or y: e.g. x = 3, y = 3, rule = B3/S23
     // Pattern: o: live, b: dead, $: line break, !: EOF and multiplicators like 42o
-    // This mmethod inserts an RLE pattern into cells at place.
+    // This method inserts an RLE grid into cells at place.
     public static Grid LoadFromRleFile(string filePath, bool[]? cells, Placement place)
     {
         string[] lines = File.ReadAllLines(filePath);
@@ -61,7 +60,7 @@ internal static class Pattern
         {
             string line = rawLine.Trim();
             if (string.IsNullOrEmpty(line) || line.StartsWith('#')) continue;
-            if (!isHeaderParsed && line.Contains('x') && line.Contains('y'))
+            if (!isHeaderParsed && line.StartsWith('x') && line.Contains('y'))
             {
                 ParseHeaderDimensions(line, out int headerWidth, out int headerHeight);
                 if (width == 0) width = headerWidth;
@@ -103,6 +102,8 @@ internal static class Pattern
             {
                 case 'b':  // dead cell(s)
                     currentX += length;
+                    if (currentX >= place.Width)
+                        throw new IndexOutOfRangeException($"Dead cells at X = {currentX} exceed the grid width {place.Width}");
                     break;
                 case 'o':// living cell(s)
                     for (int r = 0; r < length; r++)
@@ -115,10 +116,16 @@ internal static class Pattern
                     break;
                 case '$':  // linefeed
                     currentY += length;  // there can be multiple linefeeds
+                    if (currentY >= place.Height)
+                        throw new IndexOutOfRangeException($"Line feeds at Y = {currentY} exceed the grid height {place.Height}");
                     currentX = place.StartX;
                     break;
                 case '!': // end of file
                     return new Grid(cells, place.Width, place.Height);
+                case '\r':
+                case '\n':
+                case ' ':
+                    break;
                 default:
                     throw new FormatException($"Invalid symbol '{symbol}' at position ({currentX}, {currentY})");
             }
