@@ -5,6 +5,14 @@ using System.Text.Json.Serialization;
 
 namespace GameOfLife;
 
+public enum SimulationMode
+{
+    Step,
+    Slow,  // 1 Hz
+    Fast,  // 10 Hz
+    Max
+}
+
 internal class GameSettings
 {
     // set default values for all properties, so that the user doesn't have to specify all of them in the JSON file
@@ -17,6 +25,7 @@ internal class GameSettings
     public double Density { get; set; } = 0.3;
     public string RlePath { get; set; } = "";
     public int FpsRate { get; set; } = 5;
+    public SimulationMode StartupMode { get; set; } = SimulationMode.Step;
 
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
@@ -36,15 +45,25 @@ internal class GameSettings
                 settings.SaveToJson(filePath);
                 return settings;
             }
-            string jsonText = File.ReadAllText(filePath);
-            Console.WriteLine($"Settings loaded from '{filePath}'.");
-            return JsonSerializer.Deserialize<GameSettings>(jsonText, JsonOptions) ?? new GameSettings();
+            return ReadJsonFile(filePath);
         }
         catch (Exception ex)
         {
             Console.WriteLine($"Error loading settings from '{filePath}': {ex.Message}. Using default settings.");
             return new GameSettings();
         }
+    }
+
+    private static GameSettings ReadJsonFile(string filePath)
+    {
+        string content = File.ReadAllText(filePath);
+        var options = new JsonSerializerOptions
+        {
+            Converters = { new JsonStringEnumConverter() },
+            PropertyNameCaseInsensitive = true
+        };
+        Console.WriteLine($"Settings loaded from '{filePath}'.");
+        return JsonSerializer.Deserialize<GameSettings>(content, options) ?? new GameSettings();
     }
 
     public void SaveToJson(string filePath)

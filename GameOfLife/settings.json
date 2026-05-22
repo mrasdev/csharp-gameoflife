@@ -8,4 +8,5 @@
   "Density": 0.5,
   "RlePath": "",
   "FpsRate": 10
+  "StartupMode": "Step"
 }
