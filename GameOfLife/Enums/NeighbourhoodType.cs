@@ -2,6 +2,6 @@
 
 internal enum NeighbourhoodType
 {
-    Moore,
-    VonNeumann
+    Moore = 0,
+    VonNeumann = 1
 }
