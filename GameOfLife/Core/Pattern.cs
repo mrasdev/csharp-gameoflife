@@ -7,24 +7,37 @@ using System.Text;
 
 namespace GameOfLife.Core;
 
+public record Placement(
+    int Width = 0,
+    int Height = 0,
+    int StartX = 0,
+    int StartY = 0);
+
+public record Grid(
+    bool[] Cells,
+    int Width,
+    int Height);
+
 internal static class Pattern
 {
+    // return random cells: width and height from settings are used or
+    // return cells from RLE file: width and height from file are used and stored in settings
     public static bool[] GetCells(GameSettings settings)
     {
         if (settings.UseRandomPattern)
         {
             return CreateRandom(settings.Width, settings.Height, settings.Density);
         }
-        var (cells, width, heigth) = LoadFromRleFile(settings.RlePath);
-        settings.Width = width;
-        settings.Height = heigth;
-        return cells;
+        Grid rleGrid = LoadFromRleFile(settings.RlePath);
+        settings.Width = rleGrid.Width;
+        settings.Height = rleGrid.Height;
+        return rleGrid.Cells;
     }
 
     public static bool[] CreateRandom(int width, int height, double density)
     {
         bool[] cells = new bool[width * height];
-        Random rnd = new Random();
+        Random rnd = new();
         for (int i = 0; i < cells.Length; i++)
         {
             cells[i] = rnd.NextDouble() < density;
@@ -32,96 +45,95 @@ internal static class Pattern
         return cells;
     }
 
-    // Comment starts with #: #N Glider
-    // Header starts with x or y: x = 3, y = 3, rule = B3/S23
+    // Comment starts with #: e.g. #N Glider
+    // Header starts with x or y: e.g. x = 3, y = 3, rule = B3/S23
     // Pattern: o: live, b: dead, $: line break, !: EOF and multiplicators like 42o
-    public static (bool[] Cells, int Width, int Height) LoadFromRleFile(
-        string filePath, bool[]? cells, int width, int height, int startX, int startY)
-    // insert RLE pattern into cells at (startX, startY)
+    // This mmethod inserts an RLE pattern into cells at place.
+    public static Grid LoadFromRleFile(string filePath, bool[]? cells, Placement place)
     {
         string[] lines = File.ReadAllLines(filePath);
         StringBuilder sb = new();
-        bool headerFound = false;
+        bool isHeaderParsed = false;
+        int width = place.Width;
+        int height = place.Height;
 
         foreach (string rawLine in lines)
         {
             string line = rawLine.Trim();
             if (string.IsNullOrEmpty(line) || line.StartsWith('#')) continue;
-            if (!headerFound && line.Contains('x') && line.Contains('y'))
+            if (!isHeaderParsed && line.Contains('x') && line.Contains('y'))
             {
-                ParseRleHeader(line, out int headerWidth, out int headerHeight);
-                headerFound = true;
-                width = width == 0 ? headerWidth : width;
-                height = height == 0 ? headerHeight : height;
+                ParseHeaderDimensions(line, out int headerWidth, out int headerHeight);
+                if (width == 0) width = headerWidth;
+                if (height == 0) height = headerHeight;
+                isHeaderParsed = true;
                 continue;
             }
             sb.Append(line);
         }
 
-        if (width == 0) throw new ArgumentNullException(nameof(width));
-        if (height == 0) throw new ArgumentNullException(nameof(height));
+        if (width == 0) throw new ArgumentException("Width must not be zero");
+        if (height == 0) throw new ArgumentException("Height must not be zero");
         cells ??= new bool[width * height];
         if (cells.Length != width * height) throw new ArgumentException("Pattern size mismatch");
-        return ParseRleGrid(sb.ToString(), cells, width, height, startX, startY);
+        Placement finalPlace = place with { Width = width, Height = height };
+        return ExpandRleData(sb.ToString(), cells, finalPlace);
     }
-    public static (bool[] Cells, int Width, int Height) LoadFromRleFile(string filePath)
+    public static Grid LoadFromRleFile(string filePath)
     // build new pattern from scratch
     {
-        return LoadFromRleFile(filePath, cells: null, width: 0, height: 0, startX: 0, startY: 0);
+        return LoadFromRleFile(filePath, cells: null, new Placement());
     }
 
-    public static (bool[] Cells, int Width, int Height) LoadFromRleFile(string filePath, bool[] cells, int width, int height)
-    // replace existing pattern
+    private static Grid ExpandRleData(string rleText, bool[] cells, Placement place)
     {
-        return LoadFromRleFile(filePath, cells, width, height, startX: 0, startY: 0);
-    }
-
-    private static (bool[] Cells, int Width, int Height) ParseRleGrid(
-        string gridData, bool[] cells, int width, int height, int startX, int startY)
-    {
-        int currentX = startX;
-        int currentY = startY;
-        int runCount = 0;  // 0 means not yet set
-        for (int i = 0; i < gridData.Length; i++)
+        int currentX = place.StartX;
+        int currentY = place.StartY;
+        int repeatCount = 0;  // 0 means not yet set
+        foreach (char symbol in rleText)
         {
-            char c = gridData[i];
-            if (char.IsDigit(c))
+            if (char.IsDigit(symbol))
             {
-                runCount = runCount * 10 + (c - '0');  // convert multidigit number
+                repeatCount = repeatCount * 10 + (symbol - '0');  // convert multidigit number
                 continue;
             }
-            int actualRun = runCount == 0 ? 1 : runCount;
-            runCount = 0;  // reset for next character
-            if (c == 'b') currentX += actualRun;  // dead cell(s)
-            else if (c == 'o')  // living cell(s)
+            int length = repeatCount == 0 ? 1 : repeatCount;  // set to 1 if no digits have been detected
+            repeatCount = 0;  // reset for next symbol
+            switch (symbol)
             {
-                for (int r = 0; r < actualRun; r++)
-                {
-                    if (currentX < width && currentY < height)
-                        cells[currentY * width + currentX] = true;
-                    else throw new IndexOutOfRangeException($"({currentX}, {currentY}) is outside [{width}, {height}]");
-                    currentX++;
-                }
+                case 'b':  // dead cell(s)
+                    currentX += length;
+                    break;
+                case 'o':// living cell(s)
+                    for (int r = 0; r < length; r++)
+                    {
+                        if (currentX >= place.Width || currentY >= place.Height)
+                            throw new IndexOutOfRangeException($"({currentX}, {currentY}) is outside [{place.Width}, {place.Height}]");
+                        cells[currentY * place.Width + currentX] = true;
+                        currentX++;
+                    }
+                    break;
+                case '$':  // linefeed
+                    currentY += length;  // there can be multiple linefeeds
+                    currentX = place.StartX;
+                    break;
+                case '!': // end of file
+                    return new Grid(cells, place.Width, place.Height);
+                default:
+                    throw new FormatException($"Invalid symbol '{symbol}' at position ({currentX}, {currentY})");
             }
-            else if (c == '$')  // linefeed
-            {
-                currentY += actualRun;  // there can be multiple linefeeds
-                currentX = startX;
-            }
-            else if (c == '!')  // end of file
-                break;
         }
-        return (cells, width, height);
+        throw new FormatException("No end of file symbol ('!') found");
     }
 
-    private static void ParseRleHeader(string headerLine, out int width, out int height)
+    private static void ParseHeaderDimensions(string headerLine, out int width, out int height)
     {
         width = 0;
         height = 0;
-        string[] parts = headerLine.Split(",");
-        foreach (string part in parts)
+        string[] tokens = headerLine.Split(",");
+        foreach (string token in tokens)
         {
-            string clean = part.Replace(" ", "").ToLower();
+            string clean = token.Replace(" ", "").ToLower();
             if (clean.StartsWith("x="))
             {
                 _ = int.TryParse(clean[2..], out width);

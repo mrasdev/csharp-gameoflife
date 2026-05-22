@@ -7,14 +7,14 @@ namespace GameOfLife.Models;
 internal class GameSettings
 {
     // set default values for all properties, so that the user doesn't have to specify all of them in the JSON file
-    public int Width { get; set; } = 80;
-    public int Height { get; set; } = 40;
+    public int Width { get; set; } = 80;  // not used if loaded from RLE file
+    public int Height { get; set; } = 40;  // not used if loaded from RLE file
     public bool Toroidal { get; set; } = true;
     public CellularRuleType RuleType { get; set; } = CellularRuleType.Conway;
     public NeighbourhoodType NeighbourType { get; set; } = NeighbourhoodType.Moore;
-    public bool UseRandomPattern { get; set; } = true;  // If false, Rle file must be given
-    public double Density { get; set; } = 0.3;
-    public string RlePath { get; set; } = "";
+    public bool UseRandomPattern { get; set; } = true;  // If false, RLE file must be given
+    public double Density { get; set; } = 0.3;  // not used if loaded from RLE file
+    public string RlePath { get; set; } = "";  // not used if UseRandomPattern = true
     public int FpsRate { get; set; } = 5;
     public SimulationMode StartupMode { get; set; } = SimulationMode.Step;
     public bool ShowHelpScreen { get; set; } = true;
