@@ -9,7 +9,7 @@ public enum SimulationMode
 {
     Step,
     Slow,  // 1 Hz
-    Fast,  // 100 Hz
+    Fast,  // 100 Hz (but on Windows limited to ~65 Hz)
     Max
 }
 
@@ -26,57 +26,46 @@ internal class GameSettings
     public string RlePath { get; set; } = "";
     public int FpsRate { get; set; } = 5;
     public SimulationMode StartupMode { get; set; } = SimulationMode.Step;
-
-    private static readonly JsonSerializerOptions JsonOptions = new()
-    {
-        Converters = { new JsonStringEnumConverter() },
-        AllowTrailingCommas = true,
-        WriteIndented = true
-    };
+    public bool ShowHelpScreen { get; set; } = true;
 
     public static GameSettings LoadFromJson(string filePath)
     {
-        try
+        if (!File.Exists(filePath))
         {
-            if (!File.Exists(filePath))
-            {
-                Console.WriteLine($"Settings file '{filePath}' not found. Using default settings.");
-                GameSettings settings = new();
-                settings.SaveToJson(filePath);
-                return settings;
-            }
-            return ReadJsonFile(filePath);
+            Console.WriteLine($"Settings file '{filePath}' not found. Using default settings.");
+            GameSettings settings = new();
+            settings.SaveToJson(filePath);
+            return settings;
         }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"Error loading settings from '{filePath}': {ex.Message}. Using default settings.");
-            return new GameSettings();
-        }
+        return ReadJsonFile(filePath);
     }
 
     private static GameSettings ReadJsonFile(string filePath)
     {
-        string content = File.ReadAllText(filePath);
-        var options = new JsonSerializerOptions
+        try
         {
-            Converters = { new JsonStringEnumConverter() },
-            PropertyNameCaseInsensitive = true
-        };
-        Console.WriteLine($"Settings loaded from '{filePath}'.");
-        return JsonSerializer.Deserialize<GameSettings>(content, options) ?? new GameSettings();
+            Console.WriteLine($"Load settings from '{filePath}'.");
+            string content = File.ReadAllText(filePath);
+            return JsonSerializer.Deserialize<GameSettings>(content, JsonOptions) ?? new GameSettings();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"ERROR: {ex.Message}.\n--> Using default settings.");
+            return new GameSettings();
+        }
     }
 
     public void SaveToJson(string filePath)
     {
         try
         {
+            Console.WriteLine($"Save settings to '{filePath}'.");
             string jsonText = JsonSerializer.Serialize(this, JsonOptions);
             File.WriteAllText(filePath, jsonText);
-            Console.WriteLine($"Settings saved to '{filePath}'.");
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Error saving settings to '{filePath}': {ex.Message}");
+            Console.WriteLine($"ERROR: {ex.Message}");
         }
     }
 
@@ -87,4 +76,12 @@ internal class GameSettings
             Console.WriteLine($"{prop.Name,-20} {prop.GetValue(this)}");
         }
     }
+
+    private static readonly JsonSerializerOptions JsonOptions = new()
+    {
+        Converters = { new JsonStringEnumConverter() },
+        AllowTrailingCommas = true,
+        WriteIndented = true,
+        PropertyNameCaseInsensitive = true
+    };
 }

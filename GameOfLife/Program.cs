@@ -6,8 +6,7 @@ internal class Program
     {
         string settingsPath = args.Length > 0 ? args[0] : "settings.json";
         GameSettings settings = GameSettings.LoadFromJson(settingsPath);
-        //settings.PrintSettings();  // for debugging purposes
-        //Environment.Exit(0);
+        ShowHelpScreen(settings);
 
         bool[] cells = Pattern.GetCells(settings);
         SimulationEngine engine = new(settings);
@@ -16,5 +15,21 @@ internal class Program
 
         GameController controller = new(engine, renderer, settings);
         controller.Start();
+    }
+
+    static void ShowHelpScreen(GameSettings settings)
+    {
+        if (!settings.ShowHelpScreen) return;
+
+        settings.PrintSettings();
+        Console.WriteLine("\nKeyboard shortcuts:");
+        Console.WriteLine("x  Quit app");
+        Console.WriteLine("r  Restart with new pattern");
+        Console.WriteLine("F1 Step mode, press F1 subsequently");
+        Console.WriteLine("F2 Slow refreshing");
+        Console.WriteLine("F3 Fast refreshing");
+        Console.WriteLine("F4 Maximum performance");
+        Console.Write("\nPress any key to start...");
+        Console.ReadKey();
     }
 }
