@@ -1,4 +1,4 @@
-﻿namespace GameOfLife.CellurlarRules;
+﻿namespace GameOfLife.Enums;
 
 internal enum CellularRuleType
 {

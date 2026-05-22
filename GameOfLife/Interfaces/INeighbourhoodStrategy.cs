@@ -1,4 +1,6 @@
-﻿namespace GameOfLife.Interfaces;
+﻿using GameOfLife.Core;
+
+namespace GameOfLife.Interfaces;
 
 internal interface INeighbourhoodStrategy
 {

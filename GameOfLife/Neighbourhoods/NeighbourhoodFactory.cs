@@ -1,4 +1,6 @@
-﻿namespace GameOfLife.Neighbourhoods;
+﻿using GameOfLife.Enums;
+
+namespace GameOfLife.Neighbourhoods;
 
 internal class NeighbourhoodFactory
 {

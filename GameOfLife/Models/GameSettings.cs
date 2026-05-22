@@ -1,17 +1,8 @@
-﻿using GameOfLife.CellurlarRules;
-using GameOfLife.Neighbourhoods;
+﻿using GameOfLife.Enums;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
-namespace GameOfLife;
-
-public enum SimulationMode
-{
-    Step,
-    Slow,  // 1 Hz
-    Fast,  // 100 Hz (but on Windows limited to ~65 Hz)
-    Max
-}
+namespace GameOfLife.Models;
 
 internal class GameSettings
 {

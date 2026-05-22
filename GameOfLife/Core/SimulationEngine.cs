@@ -1,8 +1,10 @@
 ﻿using GameOfLife.CellurlarRules;
+using GameOfLife.Enums;
 using GameOfLife.Interfaces;
+using GameOfLife.Models;
 using GameOfLife.Neighbourhoods;
 
-namespace GameOfLife;
+namespace GameOfLife.Core;
 
 internal class SimulationEngine
 {

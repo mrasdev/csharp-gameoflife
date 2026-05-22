@@ -1,4 +1,8 @@
-﻿namespace GameOfLife;
+﻿using GameOfLife.Views;
+using GameOfLife.Core;
+using GameOfLife.Models;
+
+namespace GameOfLife;
 
 internal class Program
 {

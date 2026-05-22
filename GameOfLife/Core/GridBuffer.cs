@@ -1,6 +1,6 @@
 ﻿// Provide a grid of booleans to store the living status of cells.
 
-namespace GameOfLife;
+namespace GameOfLife.Core;
 
 internal class GridBuffer
 {

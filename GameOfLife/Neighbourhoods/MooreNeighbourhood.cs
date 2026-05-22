@@ -1,5 +1,6 @@
 ﻿// Count all 8 living neighbours of a cell, including diagonals. (Moore Strategy)
 
+using GameOfLife.Core;
 using GameOfLife.Interfaces;
 
 namespace GameOfLife.Neighbourhoods;

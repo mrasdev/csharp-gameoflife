@@ -1,5 +1,6 @@
 ﻿// Count all 4 living orthogonal neighbours of a cell, excluding diagonals. (Von Neumann Strategy)
 
+using GameOfLife.Core;
 using GameOfLife.Interfaces;
 
 namespace GameOfLife.Neighbourhoods;

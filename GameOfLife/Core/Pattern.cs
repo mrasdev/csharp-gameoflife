@@ -2,9 +2,10 @@
 // RLE: Width and Height in settings are set, too. There are overloads to replace a pattern
 // or insert filedata into an existing pattern.
 
+using GameOfLife.Models;
 using System.Text;
 
-namespace GameOfLife;
+namespace GameOfLife.Core;
 
 internal static class Pattern
 {

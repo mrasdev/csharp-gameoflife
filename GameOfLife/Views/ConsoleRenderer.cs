@@ -1,6 +1,8 @@
-﻿using System.Text;
+﻿using GameOfLife.Core;
+using GameOfLife.Enums;
+using System.Text;
 
-namespace GameOfLife;
+namespace GameOfLife.Views;
 
 internal class ConsoleRenderer
 {
