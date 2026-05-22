@@ -1,4 +1,7 @@
-﻿using GameOfLife.Enums;
+﻿// Read from JSON file and provide settings for game. If file does not exist a new one is created.
+// Return default settings in case of error. IRL you should replace WriteLines by any external handling.
+
+using GameOfLife.Enums;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
@@ -7,17 +10,38 @@ namespace GameOfLife.Models;
 internal class GameSettings
 {
     // set default values for all properties, so that the user doesn't have to specify all of them in the JSON file
-    public int Width { get; set; } = 80;  // not used if loaded from RLE file
-    public int Height { get; set; } = 40;  // not used if loaded from RLE file
+    public int Width
+    {  // not relevant if grid is loaded from RLE file
+        get => _width;
+        set => _width = Math.Abs(value); 
+    }  
+    public int Height
+    {  // not relevant if grid is loaded from RLE file
+        get => _height; 
+        set => _height = Math.Abs(value);
+    } 
     public bool Toroidal { get; set; } = true;
     public CellularRuleType RuleType { get; set; } = CellularRuleType.Conway;
     public NeighbourhoodType NeighbourType { get; set; } = NeighbourhoodType.Moore;
     public bool UseRandomPattern { get; set; } = true;  // If false, RLE file must be given
-    public double Density { get; set; } = 0.3;  // not used if loaded from RLE file
-    public string RlePath { get; set; } = "";  // not used if UseRandomPattern = true
-    public int FpsRate { get; set; } = 5;
+    public double Density
+    {  // not relevant if grid is loaded from RLE file
+        get => _density;
+        set => _density = Math.Clamp(value, 0.0, 1.0);
+    }
+    public string RlePath { get; set; } = String.Empty;  // not used if UseRandomPattern = true
+    public int FpsRate
+    {  // not relevant if grid is loaded from RLE file
+        get => _fpsRate;
+        set => _fpsRate = Math.Abs(value);
+    }
     public SimulationMode StartupMode { get; set; } = SimulationMode.Step;
     public bool ShowHelpScreen { get; set; } = true;
+
+    private int _width = 160;
+    private int _height = 40;
+    private double _density = 0.32;
+    private int _fpsRate = 10;
 
     public static GameSettings LoadFromJson(string filePath)
     {

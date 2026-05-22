@@ -6,19 +6,29 @@ namespace GameOfLife;
 
 internal class Program
 {
+    private const string DefaultPath = "settings.json";
+
     static void Main(string[] args)
     {
-        string settingsPath = args.Length > 0 ? args[0] : "settings.json";
-        GameSettings settings = GameSettings.LoadFromJson(settingsPath);
-        ShowHelpScreen(settings);
+        try
+        {
+            string settingsPath = args.Length > 0 ? args[0] : DefaultPath;
+            GameSettings settings = GameSettings.LoadFromJson(settingsPath);  // creates a new file if missing
+            ShowHelpScreen(settings);
 
-        bool[] cells = Pattern.GetCells(settings);
-        SimulationEngine engine = new(settings);
-        engine.SetCells(cells);
-        ConsoleRenderer renderer = new(engine, settings.FpsRate);
+            SimulationEngine engine = new(settings);
+            engine.SetCells(Pattern.GetCells(settings));
+            ConsoleRenderer renderer = new(engine, settings.FpsRate);
 
-        GameController controller = new(engine, renderer, settings.StartupMode);
-        controller.Start();
+            GameController controller = new(engine, renderer, settings.StartupMode);
+            controller.Start();
+        }
+        catch (Exception ex)
+        {
+            Console.ForegroundColor=ConsoleColor.Red;
+            Console.WriteLine($"ERROR: {ex.Message}");
+            Console.ResetColor();
+        }
     }
 
     static void ShowHelpScreen(GameSettings settings)
@@ -34,6 +44,6 @@ internal class Program
         Console.WriteLine("F3 Fast refreshing");
         Console.WriteLine("F4 Maximum performance");
         Console.Write("\nPress any key to start...");
-        Console.ReadKey();
+        Console.ReadKey(intercept: true);
     }
 }
