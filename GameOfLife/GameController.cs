@@ -24,7 +24,7 @@ internal class GameController
     {
         _isRunning = true;
         _renderer.Start();
-        Thread updateThread = new Thread(SimulationLoop) { IsBackground = true);
+        Thread updateThread = new Thread(SimulationLoop) { IsBackground = true };
         updateThread.Start();
         InputLoop();
     }
@@ -60,12 +60,12 @@ internal class GameController
 
                 switch (keyInfo.Key)
                 {
-                    case ConsoleKey.X:                         StopAndExit();                        break;
-                    case ConsoleKey.R:                        Restart();                        break;
-                    case ConsoleKey.F1: AppMode(SimulationMode.Step); break;
-                    case ConsoleKey.F2: AppMode(SimulationMode.Slow); break;
-                    case ConsoleKey.F3: AppMode(SimulationMode.Fast); break;
-                    case ConsoleKey.F4: AppMode(SimulationMode.Max); break;
+                    case ConsoleKey.X: StopAndExit(); break;
+                    case ConsoleKey.R: Restart(); break;
+                    case ConsoleKey.F1: ApplyMode(SimulationMode.Step); break;
+                    case ConsoleKey.F2: ApplyMode(SimulationMode.Slow); break;
+                    case ConsoleKey.F3: ApplyMode(SimulationMode.Fast); break;
+                    case ConsoleKey.F4: ApplyMode(SimulationMode.Max); break;
                 }
             }
             Thread.Sleep(100);
@@ -75,6 +75,8 @@ internal class GameController
     private void ApplyMode(SimulationMode mode)
     {
         _mode = mode;
+        _renderer.CurrentMode = mode;
+
         switch (mode)
         {
             case SimulationMode.Step:
@@ -86,7 +88,7 @@ internal class GameController
                 _stepSignal.Set();  // open the signal to prevent blocking
                 break;
             case SimulationMode.Fast:
-                _sleepTimeout = 100;  // 10 Hz
+                _sleepTimeout = 10;  // will be rounded up to 16..31 ms by Windows
                 _stepSignal.Set();  // open the signal to prevent blocking
                 break;
             case SimulationMode.Max:

@@ -4,6 +4,8 @@ namespace GameOfLife;
 
 internal class ConsoleRenderer
 {
+    public SimulationMode CurrentMode { get; set; }
+
     private readonly SimulationEngine _engine;
     private readonly int _targetFps;
     private bool _isRunning;
@@ -93,6 +95,7 @@ internal class ConsoleRenderer
         statsLine += $"Threads {threadRate,9:n0} /s | Cells {cellRate,13:n0} /s | ";
         statsLine += $"Disp {_currentWidth,3} x {_currentHeight,3} | ";
         statsLine += $"Grid {_engine.Width,4} x {_engine.Height,4} | ";
+        statsLine += $"Mode: {CurrentMode,-10}";
         if (statsLine.Length > _currentWidth) statsLine = statsLine.Substring(0, _currentWidth);
         sb.Append(statsLine);
         Console.Write(sb.ToString());

@@ -7,6 +7,6 @@
   "UseRandomPattern": true,
   "Density": 0.5,
   "RlePath": "",
-  "FpsRate": 10
+  "FpsRate": 10,
   "StartupMode": "Step"
 }

@@ -9,7 +9,7 @@ public enum SimulationMode
 {
     Step,
     Slow,  // 1 Hz
-    Fast,  // 10 Hz
+    Fast,  // 100 Hz
     Max
 }
 
