@@ -16,6 +16,7 @@ internal class SimulationEngine
     public long ThreadsPerSecond => Volatile.Read(ref _threadsPerSecond);
     public long LivingCellsCount => Volatile.Read(ref _livingCellsCount);
 
+    private GameSettings _settings;
     private GridBuffer _currentGrid;
     private GridBuffer _nextGrid;
     private bool[]? _initalCells;
@@ -34,6 +35,7 @@ internal class SimulationEngine
 
     public SimulationEngine(GameSettings settings)
     {
+        _settings = settings;
         _currentGrid = new GridBuffer(settings.Width, settings.Height, settings.Toroidal);
         _nextGrid = new GridBuffer(settings.Width, settings.Height, settings.Toroidal);
         _updateMethod = ResolveUpdateMethod(settings.RuleType, settings.NeighbourType);
@@ -77,11 +79,19 @@ internal class SimulationEngine
 
     public void Restart()
     {
-        if (_initalCells == null) return;
-
         lock (_locker)
         {
-            _currentGrid.SetCells(_initalCells.ToArray());
+            if (_settings.UseRandomPattern)
+            {
+                bool[] newCells = Pattern.GetCells(_settings);
+                _initalCells = newCells.ToArray();  // copy
+                _currentGrid.SetCells(newCells);
+            }
+            else
+            {
+                if (_initalCells == null) return;
+                _currentGrid.SetCells(_initalCells.ToArray());
+            }
             Array.Clear(_nextGrid.Cells, 0, _nextGrid.Cells.Length);
             Interlocked.Exchange(ref _generationCount, 0);
             Interlocked.Exchange(ref _updatesThisSecond, 0);

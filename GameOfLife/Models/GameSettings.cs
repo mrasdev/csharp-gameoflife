@@ -35,12 +35,12 @@ internal class GameSettings
         get => _fpsRate;
         set => _fpsRate = Math.Abs(value);
     }
-    public SimulationMode StartupMode { get; set; } = SimulationMode.Step;
+    public SimulationMode StartupMode { get; set; } = SimulationMode.Fast;
     public bool ShowHelpScreen { get; set; } = true;
 
     private int _width = 160;
     private int _height = 40;
-    private double _density = 0.32;
+    private double _density = 0.3;
     private int _fpsRate = 10;
 
     public static GameSettings LoadFromJson(string filePath)
