@@ -17,7 +17,7 @@ internal class Program
         engine.SetCells(cells);
         ConsoleRenderer renderer = new(engine, targetFps: settings.FpsRate);
 
-        GameController controller = new(engine, renderer, settings);
+        GameController controller = new(engine, renderer, settings.StartupMode);
         controller.Start();
     }
 

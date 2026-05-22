@@ -9,7 +9,6 @@ internal class GameController
 {
     private readonly SimulationEngine _engine;
     private readonly ConsoleRenderer _renderer;
-    private readonly GameSettings _settings;
 
     private bool _isRunning;
     private SimulationMode _mode;
@@ -17,12 +16,11 @@ internal class GameController
     private readonly ManualResetEventSlim _stepSignal = new(false);  // blocking for step mode
     private int _sleepTimeout = 0;
 
-    public GameController(SimulationEngine engine, ConsoleRenderer renderer, GameSettings settings)
+    public GameController(SimulationEngine engine, ConsoleRenderer renderer,  SimulationMode startup)
     {
         _engine = engine;
         _renderer = renderer;
-        _settings = settings;
-        ApplyMode(settings.StartupMode);
+        ApplyMode(startup);
     }
 
     public void Start()
