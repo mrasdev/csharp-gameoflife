@@ -1,6 +1,5 @@
 ﻿using GameOfLife.Core;
 using GameOfLife.Enums;
-using GameOfLife.Models;
 using GameOfLife.Views;
 
 namespace GameOfLife;

@@ -15,7 +15,7 @@ internal class Program
         bool[] cells = Pattern.GetCells(settings);
         SimulationEngine engine = new(settings);
         engine.SetCells(cells);
-        ConsoleRenderer renderer = new(engine, targetFps: settings.FpsRate);
+        ConsoleRenderer renderer = new(engine, settings.FpsRate);
 
         GameController controller = new(engine, renderer, settings.StartupMode);
         controller.Start();
