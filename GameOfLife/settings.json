@@ -5,7 +5,7 @@
   "RuleType": "Conway",
   "NeighbourType": "Moore",
   "UseRandomPattern": true,
-  "Density": 0.5,
+  "Density": 0.32,
   "RlePath": "",
   "FpsRate": 10,
   "StartupMode": "Step",
