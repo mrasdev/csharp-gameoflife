@@ -19,6 +19,7 @@ internal class SimulationEngine
     private bool[]? _initalCells;
 
     private readonly Action _updateMethod;  // cache the method to avoid virtual calls on every update
+    private readonly object _locker = new();
 
     // for statistics display
     private long _generationCount;
@@ -39,49 +40,60 @@ internal class SimulationEngine
 
     public void UpdatePattern()
     {
-        _updateMethod();
+        lock (_locker)
+        {
+            _updateMethod();
+        }
     }
 
     public void CopySnapshot(bool[] targetCells, int viewWidth, int viewHeight)
     {
-        bool[] currentCells = _currentGrid.Cells;
-        int gridWidth = _currentGrid.Width;  // assure a constant value (for JIT optimization) and avoid closures in the loop
-        int limitX = Math.Min(viewWidth, _currentGrid.Width);
-        int limitY = Math.Min(viewHeight, _currentGrid.Height);
-
-        Parallel.For(0, limitY, y =>
+        lock (_locker)
         {
-            int sourceOffset = y * gridWidth;
-            int targetOffset = y * viewWidth;
-            Array.Copy(currentCells, sourceOffset, targetCells, targetOffset, limitX);
-        });
+            bool[] currentCells = _currentGrid.Cells;
+            int gridWidth = _currentGrid.Width;  // assure a constant value (for JIT optimization) and avoid closures in the loop
+            int limitX = Math.Min(viewWidth, _currentGrid.Width);
+            int limitY = Math.Min(viewHeight, _currentGrid.Height);
+
+            Parallel.For(0, limitY, y =>
+            {
+                int sourceOffset = y * gridWidth;
+                int targetOffset = y * viewWidth;
+                Array.Copy(currentCells, sourceOffset, targetCells, targetOffset, limitX);
+            });
+        }
     }
 
     public void SetCells(bool[] cells)
     {
-        _initalCells = cells.ToArray();  // creates a clone
-        _currentGrid.SetCells(cells);
+        lock (_locker)
+        {
+            _initalCells = cells.ToArray();  // creates a clone
+            _currentGrid.SetCells(cells);
+        }
     }
 
     public void Restart()
     {
         if (_initalCells == null) return;
 
-        _currentGrid.SetCells(_initalCells.ToArray());
-        Array.Clear(_nextGrid.Cells, 0, _nextGrid.Cells.Length);
-
-        Interlocked.Exchange(ref _generationCount, 0);
-        Interlocked.Exchange(ref _updatesThisSecond, 0);
-        Interlocked.Exchange(ref _updatesPerSecond, 0);
-        Interlocked.Exchange(ref _threadsThisSecond, 0);
-        Interlocked.Exchange(ref _threadsPerSecond, 0);
-        long initialLivingCount = 0;
-        for (int i = 0; i < _initalCells.Length; i++)
+        lock (_locker)
         {
-            if (_initalCells[i]) initialLivingCount++;
+            _currentGrid.SetCells(_initalCells.ToArray());
+            Array.Clear(_nextGrid.Cells, 0, _nextGrid.Cells.Length);
+            Interlocked.Exchange(ref _generationCount, 0);
+            Interlocked.Exchange(ref _updatesThisSecond, 0);
+            Interlocked.Exchange(ref _updatesPerSecond, 0);
+            Interlocked.Exchange(ref _threadsThisSecond, 0);
+            Interlocked.Exchange(ref _threadsPerSecond, 0);
+            long initialLivingCount = 0;
+            for (int i = 0; i < _initalCells.Length; i++)
+            {
+                if (_initalCells[i]) initialLivingCount++;
+            }
+            _livingCellsCount = initialLivingCount;
+            _lastRateUpdate = DateTime.Now;
         }
-        _livingCellsCount = initialLivingCount;
-        _lastRateUpdate = DateTime.Now;
     }
 
     private Action ResolveUpdateMethod(CellularRuleType ruleType, NeighbourhoodType neighbourType) =>
