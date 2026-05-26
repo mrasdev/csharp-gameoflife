@@ -20,7 +20,7 @@ internal class Program
             engine.SetCells(Pattern.GetCells(settings));
             ConsoleRenderer renderer = new(engine, settings.FpsRate);
 
-            GameController controller = new(engine, renderer, settings.StartupMode);
+            using var controller = new GameController(engine, renderer, settings.StartupMode);
             controller.Start();
         }
         catch (Exception ex)
