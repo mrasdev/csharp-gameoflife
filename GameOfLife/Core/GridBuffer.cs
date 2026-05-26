@@ -4,7 +4,6 @@ namespace GameOfLife.Core;
 
 internal class GridBuffer
 {
-    // These properties must be readonly, as they will be accessed frequently during neighbour counting (JIT optimization)
     public int Width { get; }
     public int Height { get; }
     public bool Toroidal { get; }
@@ -13,10 +12,12 @@ internal class GridBuffer
 
     public GridBuffer(int width, int height, bool toroidal)
     {
+        ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(width, 0);
+        ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(height, 0);
         Width = width;
         Height = height;
         Toroidal = toroidal;
-        Cells = new bool[Width * Height];
+        Cells = new bool[width * height];
     }
 
     public bool this[int x, int y]  // indexer to access the grid conveniently by x and y (but slower)
@@ -25,10 +26,9 @@ internal class GridBuffer
         set => Cells[y * Width + x] = value;
     }
 
-    public void SetCells(bool[] cells)
+    public void SetCells(ReadOnlySpan<bool> newCells)
     {
-        if (cells.Length != Cells.Length)
-            throw new ArgumentException("Cells size is different to grid size!");
-        Array.Copy(cells, Cells, cells.Length);
+        ArgumentOutOfRangeException.ThrowIfNotEqual(newCells.Length, Cells.Length);
+        newCells.CopyTo(Cells);
     }
 }
