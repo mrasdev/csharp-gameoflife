@@ -11,18 +11,19 @@ internal class SimulationEngine
     public int Width => _currentGrid.Width;
     public int Height => _currentGrid.Height;
     public int MaxNeighbours { get; }
-    public long GenerationCount => Volatile.Read(ref _generationCount);
-    public long UpdatesPerSecond => Volatile.Read(ref _updatesPerSecond);
-    public long ThreadsPerSecond => Volatile.Read(ref _threadsPerSecond);
-    public long LivingCellsCount => Volatile.Read(ref _livingCellsCount);
+    public long GenerationCount => Volatile.Read(ref _generationCount);  // uint can overflow after a couple of days
+    public long UpdatesPerSecond => Volatile.Read(ref _updatesPerSecond);  // consistent, 64-bit atomic/volatile ops
+    public long ThreadsPerSecond => Volatile.Read(ref _threadsPerSecond);  // consistent, 64-bit atomic/volatile ops
+    public long LivingCellsCount => Volatile.Read(ref _livingCellsCount);  // consistent, 64-bit atomic/volatile ops
 
-    private GameSettings _settings;
+    private readonly GameSettings _settings;
     private GridBuffer _currentGrid;
     private GridBuffer _nextGrid;
-    private bool[]? _initalCells;
+    private readonly bool[] _initialCells;
 
     private readonly Action _updateMethod;  // cache the method to avoid virtual calls on every update
-    private readonly object _locker = new();
+    private readonly Lock _updateLock = new();  // fast lock for cell updates
+    private readonly Lock _statsLock = new();  // slow lock for statistics updates
 
     // for statistics display
     private long _generationCount;
@@ -39,12 +40,13 @@ internal class SimulationEngine
         _currentGrid = new GridBuffer(settings.Width, settings.Height, settings.Toroidal);
         _nextGrid = new GridBuffer(settings.Width, settings.Height, settings.Toroidal);
         _updateMethod = ResolveUpdateMethod(settings.RuleType, settings.NeighbourType);
+        _initialCells = new bool[settings.Width * settings.Height];
         MaxNeighbours = NeighbourhoodFactory.GetMaxNeighbours(settings.NeighbourType);
     }
 
     public void UpdatePattern()
     {
-        lock (_locker)
+        lock (_updateLock)
         {
             _updateMethod();
         }
@@ -52,10 +54,10 @@ internal class SimulationEngine
 
     public void CopySnapshot(bool[] targetCells, int viewWidth, int viewHeight)
     {
-        lock (_locker)
+        lock (_updateLock)
         {
             bool[] currentCells = _currentGrid.Cells;
-            int gridWidth = _currentGrid.Width;  // assure a constant value (for JIT optimization) and avoid closures in the loop
+            int gridWidth = _currentGrid.Width;
             int limitX = Math.Min(viewWidth, _currentGrid.Width);
             int limitY = Math.Min(viewHeight, _currentGrid.Height);
 
@@ -70,40 +72,49 @@ internal class SimulationEngine
 
     public void SetCells(bool[] cells)
     {
-        lock (_locker)
+        lock (_updateLock)
         {
-            _initalCells = cells.ToArray();  // creates a clone
+            ArgumentOutOfRangeException.ThrowIfNotEqual(cells.Length, _initialCells.Length);
+            Array.Copy(cells, _initialCells, cells.Length);
             _currentGrid.SetCells(cells);
+
+            long initialLivingCount = 0;
+            for (int i = 0; i < cells.Length; i++)
+            {
+                if (cells[i]) initialLivingCount++;
+            }
+            Volatile.Write(ref _livingCellsCount, initialLivingCount);
         }
     }
 
     public void Restart()
     {
-        lock (_locker)
+        lock (_updateLock)
         {
             if (_settings.UseRandomPattern)
             {
                 bool[] newCells = Pattern.GetCells(_settings);
-                _initalCells = newCells.ToArray();  // copy
+                Array.Copy(newCells, _initialCells, newCells.Length);
                 _currentGrid.SetCells(newCells);
             }
             else
             {
-                if (_initalCells == null) return;
-                _currentGrid.SetCells(_initalCells.ToArray());
+                _currentGrid.SetCells(_initialCells);
             }
+
             Array.Clear(_nextGrid.Cells, 0, _nextGrid.Cells.Length);
-            Interlocked.Exchange(ref _generationCount, 0);
-            Interlocked.Exchange(ref _updatesThisSecond, 0);
-            Interlocked.Exchange(ref _updatesPerSecond, 0);
-            Interlocked.Exchange(ref _threadsThisSecond, 0);
-            Interlocked.Exchange(ref _threadsPerSecond, 0);
+            Volatile.Write(ref _generationCount, 0);
+            Volatile.Write(ref _updatesThisSecond, 0);
+            Volatile.Write(ref _updatesPerSecond, 0);
+            Volatile.Write(ref _threadsThisSecond, 0);
+            Volatile.Write(ref _threadsPerSecond, 0);
+
             long initialLivingCount = 0;
-            for (int i = 0; i < _initalCells.Length; i++)
+            for (int i = 0; i < _initialCells.Length; i++)
             {
-                if (_initalCells[i]) initialLivingCount++;
+                if (_initialCells[i]) initialLivingCount++;
             }
-            _livingCellsCount = initialLivingCount;
+            Volatile.Write(ref _livingCellsCount, initialLivingCount);
             _lastRateUpdate = DateTime.Now;
         }
     }
@@ -131,48 +142,51 @@ internal class SimulationEngine
         TRule rule = default;
         TStrategy strategy = default;
 
-        // 1. Class fields and properties are stored on the heap where local variables are stored on the (fast) stack. 
-        // 2. With immutable local variables, loops can be unrolled by the JIT compiler.
-        // 3. Using a local int instead of a complex object which needs to be put into a "closure" can improve performance.
+        // We keep the direct array references locally to make the indexing inside the loop ultra-short
+        bool[] currentCells = _currentGrid.Cells;
+        bool[] nextCells = _nextGrid.Cells;
         int width = _currentGrid.Width;
-        int height = _currentGrid.Height;
-        GridBuffer currentGrid = _currentGrid;  // we need the whole grid to count neighbours
-        bool[] currentCells = currentGrid.Cells;
-        bool[] nextCells = _nextGrid.Cells;  // we only need a reference to the array to store the next state
         long localLivingCells = 0;
 
         // since the grid is stored in a linear array, one row per thread is contiguous data in memory
-        Parallel.For(0, height, y =>
+        Parallel.For(0, _currentGrid.Height, y =>
         {
             int rowOffset = y * width;
             long threadLivingCells = 0;  // counter per thread to avoid interlocked overhead
             for (int x = 0; x < width; x++)
             {
                 int gridIndex = rowOffset + x;
-                int liveNeighbours = strategy.CountNeighbours(currentGrid, x, y);
+                int liveNeighbours = strategy.CountNeighbours(_currentGrid, x, y);
                 bool nextState = rule.CalculateNextState(currentCells[gridIndex], liveNeighbours);
                 nextCells[gridIndex] = nextState;
                 if (nextState) threadLivingCells++;
             }
             Interlocked.Add(ref localLivingCells, threadLivingCells);
-            Interlocked.Increment(ref _threadsThisSecond);
         });
+        Interlocked.Add(ref _threadsThisSecond, _currentGrid.Height);
         (_nextGrid, _currentGrid) = (_currentGrid, _nextGrid);  // pointer swap to avoid copying arrays
-        _livingCellsCount = localLivingCells;
+        Volatile.Write(ref _livingCellsCount, localLivingCells);
         Interlocked.Increment(ref _generationCount);
         Interlocked.Increment(ref _updatesThisSecond);
         TrackRates();
     }
+
     private void TrackRates()
     {
         DateTime now = DateTime.Now;
         if ((now - _lastRateUpdate).TotalSeconds >= 1.0)
         {
-            _updatesPerSecond = _updatesThisSecond;
-            _updatesThisSecond = 0;
-            _threadsPerSecond = _threadsThisSecond;
-            _threadsThisSecond = 0;
-            _lastRateUpdate = now;
+            lock (_statsLock)
+            {
+                if ((now - _lastRateUpdate).TotalSeconds >= 1.0)
+                {
+                    Volatile.Write(ref _updatesPerSecond, Volatile.Read(ref _updatesThisSecond));
+                    Volatile.Write(ref _updatesThisSecond, 0);
+                    Volatile.Write(ref _threadsPerSecond, Volatile.Read(ref _threadsThisSecond));
+                    Volatile.Write(ref _threadsThisSecond, 0);
+                    _lastRateUpdate = now;
+                }
+            }
         }
     }
 }
