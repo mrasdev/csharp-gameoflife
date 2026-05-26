@@ -7,73 +7,67 @@ namespace GameOfLife.Neighbourhoods;
 
 internal struct MooreNeighbourhood : INeighbourhoodStrategy
 {
-    public static int MaxNeighbours => 8;
+    public static int MaxNeighbours => 8;  // needed for statistics display
 
     public readonly int CountNeighbours(GridBuffer grid, int x, int y)
     {
-        return grid.Toroidal  // Will be optimized by the JIT compiler to a constant branch
+        return grid.Toroidal  // will be optimized by the JIT compiler to a constant branch
             ? CountNeighboursToroidal(grid, x, y)
             : CountNeighboursBordered(grid, x, y);
     }
 
     private static int CountNeighboursToroidal(GridBuffer grid, int x, int y)
     {
+        int width = grid.Width;
+        int height = grid.Height;
+        ReadOnlySpan<bool> cells = grid.Cells;
+
         // Modulo is slow, we will use conditional logic to wrap around the edges
-        int leftX = (x == 0) ? grid.Width - 1 : x - 1;
-        int rightX = (x == grid.Width - 1) ? 0 : x + 1;
-        int upY = (y == 0) ? grid.Height - 1 : y - 1;
-        int downY = (y == grid.Height - 1) ? 0 : y + 1;
+        int leftX = (x == 0) ? width - 1 : x - 1;
+        int rightX = (x == width - 1) ? 0 : x + 1;
+        int upY = (y == 0) ? height - 1 : y - 1;
+        int downY = (y == height - 1) ? 0 : y + 1;
 
         // Calculate the row offsets in the 1D array
-        int rowUp = upY * grid.Width;
-        int rowCurrent = y * grid.Width;
-        int rowDown = downY * grid.Width;
+        int rowUp = upY * width;
+        int rowCurrent = y * width;
+        int rowDown = downY * width;
 
         int count = 0;
 
-        // 8 if statements are faster than loops for a fixed number of iterations
-        if (grid.Cells[rowUp + leftX]) count++;
-        if (grid.Cells[rowUp + x]) count++;
-        if (grid.Cells[rowUp + rightX]) count++;
-        if (grid.Cells[rowCurrent + leftX]) count++;
-        if (grid.Cells[rowCurrent + rightX]) count++;
-        if (grid.Cells[rowDown + leftX]) count++;
-        if (grid.Cells[rowDown + x]) count++;
-        if (grid.Cells[rowDown + rightX]) count++;
+        // conversion to numbers is fast (branchless)
+        count += cells[rowUp + leftX] ? 1 : 0;
+        count += cells[rowUp + x] ? 1 : 0;
+        count += cells[rowUp + rightX] ? 1 : 0;
+        count += cells[rowCurrent + leftX] ? 1 : 0;
+        count += cells[rowCurrent + rightX] ? 1 : 0;
+        count += cells[rowDown + leftX] ? 1 : 0;
+        count += cells[rowDown + x] ? 1 : 0;
+        count += cells[rowDown + rightX] ? 1 : 0;
 
         return count;
     }
 
     private static int CountNeighboursBordered(GridBuffer grid, int x, int y)
     {
-        // Limit the neighbour coordinates to the grid boundaries to avoid out-of-bounds access
-        int leftX = x <= 0 ? x : x - 1;
-        int rightX = x >= grid.Width - 1 ? x : x + 1;
-        int upY = y <= 0 ? y : y - 1;
-        int downY = y >= grid.Height - 1 ? y : y + 1;
+        int width = grid.Width;
+        ReadOnlySpan<bool> cells = grid.Cells;
 
-        int rowUp = upY * grid.Width;
-        int rowCurrent = y * grid.Width;
-        int rowDown = downY * grid.Width;
-
+        // reduce the 3x3 window at the borders
+        int startX = Math.Max(0, x - 1);
+        int endX = Math.Min(width - 1, x + 1);
+        int startY = Math.Max(0, y - 1);
+        int endY = Math.Min(grid.Height - 1, y + 1);
         int count = 0;
 
-        // Skip counting the current cell and the duplicates at the bounds
-        if (upY != y)
+        for (int rowY = startY; rowY <= endY; rowY++)  // loops will be unrolled by JIT compiler
         {
-            if (leftX != x) if (grid.Cells[rowUp + leftX]) count++;
-            if (grid.Cells[rowUp + x]) count++;
-            if (rightX != x) if (grid.Cells[rowUp + rightX]) count++;
-        }
-
-        if (leftX != x) if (grid.Cells[rowCurrent + leftX]) count++;
-        if (rightX != x) if (grid.Cells[rowCurrent + rightX]) count++;
-
-        if (downY != y)
-        {
-            if (leftX != x) if (grid.Cells[rowDown + leftX]) count++;
-            if (grid.Cells[rowDown + x]) count++;
-            if (rightX != x) if (grid.Cells[rowDown + rightX]) count++;
+            int rowOffset = rowY * width;
+            for (int colX = startX; colX <= endX; colX++)
+            {
+                if (colX == x && rowY == y) continue;  // skip center cell
+                if (cells[rowOffset + colX]) count++;
+            }
         }
 
         return count;
