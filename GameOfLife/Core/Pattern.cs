@@ -71,10 +71,10 @@ internal static class Pattern
             sb.Append(line);
         }
 
-        if (width == 0) throw new ArgumentException("Width must not be zero");
-        if (height == 0) throw new ArgumentException("Height must not be zero");
+        ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(width, 0);
+        ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(height, 0);
         cells ??= new bool[width * height];
-        if (cells.Length != width * height) throw new ArgumentException("Pattern size mismatch");
+        ArgumentOutOfRangeException.ThrowIfNotEqual(cells.Length, width * height);
         Placement finalPlace = place with { Width = width, Height = height };
         return ExpandRleData(sb.ToString(), cells, finalPlace);
     }
