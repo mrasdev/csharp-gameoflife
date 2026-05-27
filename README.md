@@ -2,6 +2,8 @@
 
 A highly optimized, multi-threaded, and **zero-allocation** simulation engine for *Conway's Game of Life* and *HighLife*, built with **.NET 9**. This project leverages low-level optimization techniques, modern C# features, and hardware awareness to maximize execution speed and throughput on modern multi-core CPUs.
 
+![Screenshot](OneBillion.png "Screenshot")
+
 ---
 
 ## Performance & Architecture Highlights
