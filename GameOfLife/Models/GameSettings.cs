@@ -43,6 +43,14 @@ internal class GameSettings
     private double _density = 0.3;
     private int _fpsRate = 10;
 
+    private static readonly JsonSerializerOptions JsonOptions = new()
+    {
+        Converters = { new JsonStringEnumConverter() },
+        AllowTrailingCommas = true,
+        WriteIndented = true,
+        PropertyNameCaseInsensitive = true
+    };
+
     public static GameSettings LoadFromJson(string filePath)
     {
         if (!File.Exists(filePath))
@@ -53,21 +61,6 @@ internal class GameSettings
             return settings;
         }
         return ReadJsonFile(filePath);
-    }
-
-    private static GameSettings ReadJsonFile(string filePath)
-    {
-        try
-        {
-            Console.WriteLine($"Load settings from '{filePath}'.");
-            string content = File.ReadAllText(filePath);
-            return JsonSerializer.Deserialize<GameSettings>(content, JsonOptions) ?? new GameSettings();
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"ERROR: {ex.Message}.\n--> Using default settings.");
-            return new GameSettings();
-        }
     }
 
     public void SaveToJson(string filePath)
@@ -92,11 +85,18 @@ internal class GameSettings
         }
     }
 
-    private static readonly JsonSerializerOptions JsonOptions = new()
+    private static GameSettings ReadJsonFile(string filePath)
     {
-        Converters = { new JsonStringEnumConverter() },
-        AllowTrailingCommas = true,
-        WriteIndented = true,
-        PropertyNameCaseInsensitive = true
-    };
+        try
+        {
+            Console.WriteLine($"Load settings from '{filePath}'.");
+            string content = File.ReadAllText(filePath);
+            return JsonSerializer.Deserialize<GameSettings>(content, JsonOptions) ?? new GameSettings();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"ERROR: {ex.Message}.\n--> Using default settings.");
+            return new GameSettings();
+        }
+    }
 }

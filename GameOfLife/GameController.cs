@@ -32,6 +32,10 @@ internal class GameController : IDisposable
         updateThread.Start();
         InputLoop();  // this (intenionally) blocks the main thread
     }
+    public void Dispose()
+    {
+        _stepSignal?.Dispose();
+    }
 
     private void SimulationLoop()
     {
@@ -120,10 +124,5 @@ internal class GameController : IDisposable
     private void Restart()
     {
         _engine.Restart();
-    }
-
-    public void Dispose()
-    {
-        _stepSignal?.Dispose();
     }
 }
