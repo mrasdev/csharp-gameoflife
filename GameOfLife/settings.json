@@ -1,6 +1,6 @@
 {
-  "Width": 270,
-  "Height": 71,
+  "Width": 1000,
+  "Height": 1000,
   "Toroidal": true,
   "RuleType": "Conway",
   "NeighbourType": "Moore",
@@ -9,5 +9,5 @@
   "RlePath": "",
   "FpsRate": 10,
   "StartupMode": "Fast",
-  "ShowHelpScreen": false
+  "ShowHelpScreen": true
 }

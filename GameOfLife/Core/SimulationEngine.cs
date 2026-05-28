@@ -54,7 +54,7 @@ internal class SimulationEngine : IDisposable
         ResolveUpdateMethod(settings.RuleType, settings.NeighbourType);
         _threadCount = Environment.ProcessorCount;
         _workers = new Thread[_threadCount];
-        _barrier = new Barrier(_threadCount + 1);
+        _barrier = new Barrier(_threadCount + 1);  // workers + main thread
         InitWorkerThreads();
     }
 
