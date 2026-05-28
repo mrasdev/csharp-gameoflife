@@ -33,7 +33,7 @@ internal class GameSettings
     public int FpsRate
     {  // not relevant if grid is loaded from RLE file
         get => _fpsRate;
-        set => _fpsRate = Math.Abs(value);
+        set => _fpsRate = Math.Max(1, value);
     }
     public SimulationMode StartupMode { get; set; } = SimulationMode.Fast;
     public bool ShowHelpScreen { get; set; } = true;
