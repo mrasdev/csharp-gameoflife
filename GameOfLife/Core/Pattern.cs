@@ -102,7 +102,7 @@ internal static class Pattern
             {
                 case 'b':  // dead cell(s)
                     currentX += length;
-                    if (currentX >= place.Width)
+                    if (currentX > place.Width)
                         throw new IndexOutOfRangeException($"Dead cells at X = {currentX} exceed the grid width {place.Width}");
                     break;
                 case 'o':// living cell(s)
