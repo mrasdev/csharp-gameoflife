@@ -8,6 +8,6 @@
   "Density": 0.3,
   "RlePath": "",
   "FpsRate": 10,
-  "StartupMode": "Fast",
-  "ShowHelpScreen": false
+  "StartupMode": "Step",
+  "ShowHelpScreen": true
 }
