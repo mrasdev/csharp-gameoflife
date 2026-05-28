@@ -54,6 +54,8 @@ public class ConwayRuleTests
     [Theory]
     [InlineData(4)]
     [InlineData(5)]
+    [InlineData(6)]
+    [InlineData(7)]
     [InlineData(8)]
     public void CalculateNextState_LivingCellWithTooManyNeighbours_ShouldDieOfOverpopulation(int neighbours)
     {
@@ -66,5 +68,28 @@ public class ConwayRuleTests
 
         // Assert
         Assert.False(nextState, $"A living cell with {neighbours} neighbors must die due to overpopulation.");
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(1)]
+    [InlineData(2)]
+    // 3 is omitted here because it triggers a birth
+    [InlineData(4)]
+    [InlineData(5)]
+    [InlineData(6)] // CRITICAL: Verification that Conway does NOT behave like HighLife here
+    [InlineData(7)]
+    [InlineData(8)]
+    public void CalculateNextState_DeadCellWithIncorrectNeighbourCount_ShouldRemainDead(int neighbours)
+    {
+        // Arrange
+        var rule = new ConwayRule();
+        bool currentState = false; // Dead cell
+
+        // Act
+        bool nextState = rule.CalculateNextState(currentState, neighbours);
+
+        // Assert
+        Assert.False(nextState, $"A dead cell with {neighbours} neighbors must remain dead.");
     }
 }
