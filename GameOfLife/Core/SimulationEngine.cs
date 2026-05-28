@@ -6,7 +6,7 @@ using GameOfLife.Neighbourhoods;
 
 namespace GameOfLife.Core;
 
-internal class SimulationEngine
+internal class SimulationEngine : IDisposable
 {
     public int Width => _currentGrid.Width;
     public int Height => _currentGrid.Height;
@@ -21,7 +21,6 @@ internal class SimulationEngine
     private GridBuffer _nextGrid;
     private readonly bool[] _initialCells;
 
-    private readonly Action _updateMethod;  // cache the method to avoid virtual calls on every update
     private readonly Lock _updateLock = new();  // fast lock for cell updates
     private readonly Lock _statsLock = new();  // slow lock for statistics updates
 
@@ -34,21 +33,44 @@ internal class SimulationEngine
     private long _livingCellsCount;
     private DateTime _lastRateUpdate = DateTime.Now;
 
+    private readonly int _threadCount;
+    private readonly Thread[] _workers;
+    private readonly Barrier _barrier; // synchronize start and end of workers
+    private bool _isDisposed;
+    private long _globalLivingCells;
+
+    // Delegate for allocation-less execution
+    private delegate void StepDelegate(int startY, int endY);
+    private StepDelegate? _currentStepMethod;
+
     public SimulationEngine(GameSettings settings)
     {
         _settings = settings;
         _currentGrid = new GridBuffer(settings.Width, settings.Height, settings.Toroidal);
         _nextGrid = new GridBuffer(settings.Width, settings.Height, settings.Toroidal);
-        _updateMethod = ResolveUpdateMethod(settings.RuleType, settings.NeighbourType);
         _initialCells = new bool[settings.Width * settings.Height];
         MaxNeighbours = NeighbourhoodFactory.GetMaxNeighbours(settings.NeighbourType);
+
+        ResolveUpdateMethod(settings.RuleType, settings.NeighbourType);
+        _threadCount = Environment.ProcessorCount;
+        _workers = new Thread[_threadCount];
+        _barrier = new Barrier(_threadCount + 1);
+        InitWorkerThreads();
     }
 
     public void UpdatePattern()
     {
         lock (_updateLock)
         {
-            _updateMethod();
+            _globalLivingCells = 0;
+            _barrier.SignalAndWait();  // wake up the workers
+            _barrier.SignalAndWait();  // wait for the workers
+            Interlocked.Add(ref _threadsThisSecond, _currentGrid.Height);
+            (_nextGrid, _currentGrid) = (_currentGrid, _nextGrid);
+            Volatile.Write(ref _livingCellsCount, _globalLivingCells);
+            Interlocked.Increment(ref _generationCount);
+            Interlocked.Increment(ref _updatesThisSecond);
+            TrackRates();
         }
     }
 
@@ -61,12 +83,10 @@ internal class SimulationEngine
             int limitX = Math.Min(viewWidth, _currentGrid.Width);
             int limitY = Math.Min(viewHeight, _currentGrid.Height);
 
-            Parallel.For(0, limitY, y =>
+            for (int y = 0; y < limitY; y++)
             {
-                int sourceOffset = y * gridWidth;
-                int targetOffset = y * viewWidth;
-                Array.Copy(currentCells, sourceOffset, targetCells, targetOffset, limitX);
-            });
+                Array.Copy(currentCells, y * gridWidth, targetCells, y * viewWidth, limitX);
+            }
         }
     }
 
@@ -119,21 +139,64 @@ internal class SimulationEngine
         }
     }
 
-    private Action ResolveUpdateMethod(CellularRuleType ruleType, NeighbourhoodType neighbourType) =>
-    (ruleType, neighbourType) switch
+    public void Dispose()
     {
-        (CellularRuleType.Conway, NeighbourhoodType.Moore) =>
-            UpdatePatternGeneric<ConwayRule, MooreNeighbourhood>,
-        (CellularRuleType.Conway, NeighbourhoodType.VonNeumann) =>
-            UpdatePatternGeneric<ConwayRule, VonNeumannNeighbourhood>,
-        (CellularRuleType.HighLife, NeighbourhoodType.Moore) =>
-            UpdatePatternGeneric<HighLifeRule, MooreNeighbourhood>,
-        (CellularRuleType.HighLife, NeighbourhoodType.VonNeumann) =>
-            UpdatePatternGeneric<HighLifeRule, VonNeumannNeighbourhood>,
-        _ => throw new ArgumentException("Invalid combination of rule and neighbourhood.")
-    };
+        lock (_updateLock)  // wait for updatePattern()
+        {
+            if (_isDisposed) return;
+            _isDisposed = true;
+            _barrier.Dispose();
+        }
+    }
 
-    private void UpdatePatternGeneric<TRule, TStrategy>()
+    private void InitWorkerThreads()
+    {
+        int rowsPerThread = _currentGrid.Height / _threadCount;
+        for (int i = 0; i < _threadCount; i++)
+        {
+            int threadIndex = i;
+            int startY = threadIndex * rowsPerThread;
+            // the last thread takes the rest
+            int endY = (threadIndex == _threadCount - 1) ? _currentGrid.Height : startY + rowsPerThread;
+            _workers[i] = new Thread(() => WorkerLoop(startY, endY))
+            {
+                IsBackground = true,
+                Priority = ThreadPriority.Highest
+            };
+            _workers[i].Start();
+        }
+    }
+    private void WorkerLoop(int startY, int endY)
+    {
+        try
+        {
+            while (!_isDisposed)
+            {
+                _barrier.SignalAndWait();  // wait for main thread
+                if (_isDisposed) break;
+                _currentStepMethod?.Invoke(startY, endY);
+                _barrier.SignalAndWait();  // main thread waits for that
+            }
+        }
+        catch (ObjectDisposedException)
+        {
+            // intended exit path, no problem
+        }
+    }
+
+    private void ResolveUpdateMethod(CellularRuleType ruleType, NeighbourhoodType neighbourType)
+    {
+        _currentStepMethod = (ruleType, neighbourType) switch
+        {
+            (CellularRuleType.Conway, NeighbourhoodType.Moore) => UpdatePatternGeneric<ConwayRule, MooreNeighbourhood>,
+            (CellularRuleType.Conway, NeighbourhoodType.VonNeumann) => UpdatePatternGeneric<ConwayRule, VonNeumannNeighbourhood>,
+            (CellularRuleType.HighLife, NeighbourhoodType.Moore) => UpdatePatternGeneric<HighLifeRule, MooreNeighbourhood>,
+            (CellularRuleType.HighLife, NeighbourhoodType.VonNeumann) => UpdatePatternGeneric<HighLifeRule, VonNeumannNeighbourhood>,
+            _ => throw new ArgumentException("Invalid combination of rule and neighbourhood.")
+        };
+    }
+
+    private void UpdatePatternGeneric<TRule, TStrategy>(int startY, int endY)
     // because of the struct constraints, the JIT compiler can inline the method and optimize it heavily
     where TRule : struct, ICellularRule
     where TStrategy : struct, INeighbourhoodStrategy
@@ -149,26 +212,19 @@ internal class SimulationEngine
         long localLivingCells = 0;
 
         // since the grid is stored in a linear array, one row per thread is contiguous data in memory
-        Parallel.For(0, _currentGrid.Height, y =>
+        for (int y = startY; y < endY; y++)
         {
             int rowOffset = y * width;
-            long threadLivingCells = 0;  // counter per thread to avoid interlocked overhead
             for (int x = 0; x < width; x++)
             {
                 int gridIndex = rowOffset + x;
                 int liveNeighbours = strategy.CountNeighbours(_currentGrid, x, y);
                 bool nextState = rule.CalculateNextState(currentCells[gridIndex], liveNeighbours);
                 nextCells[gridIndex] = nextState;
-                if (nextState) threadLivingCells++;
+                if (nextState) localLivingCells++;
             }
-            Interlocked.Add(ref localLivingCells, threadLivingCells);
-        });
-        Interlocked.Add(ref _threadsThisSecond, _currentGrid.Height);
-        (_nextGrid, _currentGrid) = (_currentGrid, _nextGrid);  // pointer swap to avoid copying arrays
-        Volatile.Write(ref _livingCellsCount, localLivingCells);
-        Interlocked.Increment(ref _generationCount);
-        Interlocked.Increment(ref _updatesThisSecond);
-        TrackRates();
+        }
+        Interlocked.Add(ref _globalLivingCells, localLivingCells);
     }
 
     private void TrackRates()
