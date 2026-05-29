@@ -17,15 +17,12 @@ This engine was built with a strong focus on **predictable performance, zero GC 
 - Eliminates GC pauses completely
 - Ensures stable frame timing
 
----
 
 ### Dedicated Worker Threads
 - Fixed number of background threads (`Environment.ProcessorCount`)
 - No ThreadPool, no `Parallel.For`
 - No task scheduling overhead
 - Threads remain alive for the full application lifecycle
-
----
 
 ### Barrier-Based Synchronization
 - Uses `System.Threading.Barrier` for precise coordination
@@ -34,7 +31,6 @@ This engine was built with a strong focus on **predictable performance, zero GC 
   2. Wait for completion
 - No busy-waiting, no polling
 
----
 
 ### Compile-Time Polymorphism
 - Uses `struct`-based generics instead of virtual calls:
@@ -51,13 +47,11 @@ UpdatePatternGeneric<TRule, TStrategy>
 - Fully inlined by the JIT
 - Zero dispatch overhead
 
----
 
 ### Branchless Rule Execution
 - Uses bitwise operations instead of `if`/`else`
 - Eliminates branch prediction penalties
 
----
 
 ### Double Buffering
 - Reads from `_currentGrid`
@@ -68,21 +62,16 @@ UpdatePatternGeneric<TRule, TStrategy>
 (_nextGrid, _currentGrid) = (_currentGrid, _nextGrid);
 ```
 
----
-
 ### Cache-Friendly Layout
 - Flat `bool[]` array
 - Row-based chunking per thread
 - No false sharing
 
----
 
 ### High-Performance Statistics
 - Lock-free (`Interlocked`, `Volatile`)
 - Snapshot-based via `GetStats()`
 - Timing via `Environment.TickCount64`
-
-
 
 ---
 
