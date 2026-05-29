@@ -1,5 +1,6 @@
 ﻿using GameOfLife.Core;
 using GameOfLife.Enums;
+using GameOfLife.Models;
 using System.Text;
 
 namespace GameOfLife.Views;
@@ -89,14 +90,11 @@ internal class ConsoleRenderer
 
     private void WriteScreen()
     {
-        long genCount = _engine.GenerationCount;
-        long aliveCount = _engine.LivingCellsCount;
-        long gridRate = _engine.UpdatesPerSecond;
-        long threadRate = _engine.ThreadsPerSecond;
-        // If toroidal == false the number of checks is less because of the borders. We ignore that. ;)
-        long checkRate = threadRate * _engine.Width * _engine.MaxNeighbours;
-        string statsLine = $"Gen {genCount,10:n0} | Alive {aliveCount,9:n0} | Grids {gridRate,6:n0} /s | ";
-        statsLine += $"Threads {threadRate,9:n0} /s | Checks {checkRate,13:n0} /s | ";
+        SimulationStats stats = _engine.GetStats();
+        string statsLine = $"Gen {stats.GenerationCount,10:n0} | ";
+        statsLine += $"Alive {stats.LivingCells,9:n0} | ";
+        statsLine += $"Grids {stats.UpdatesPerSecond,6:n0} /s | ";
+        statsLine += $"Checks {stats.NeighbourChecksPerSecond,13:n0} /s | ";
         statsLine += $"Disp {_currentWidth,3} x {_currentHeight,3} | ";
         statsLine += $"Grid {_engine.Width,4} x {_engine.Height,4} | ";
         statsLine += $"Mode: {CurrentMode,-10}";

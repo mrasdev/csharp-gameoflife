@@ -10,11 +10,6 @@ internal class SimulationEngine : IDisposable
 {
     public int Width => _currentGrid.Width;
     public int Height => _currentGrid.Height;
-    public int MaxNeighbours { get; }
-    public long GenerationCount => Volatile.Read(ref _generationCount);  // uint can overflow after a couple of days
-    public long UpdatesPerSecond => Volatile.Read(ref _updatesPerSecond);  // consistent, 64-bit atomic/volatile ops
-    public long ThreadsPerSecond => Volatile.Read(ref _threadsPerSecond);  // consistent, 64-bit atomic/volatile ops
-    public long LivingCellsCount => Volatile.Read(ref _livingCellsCount);  // consistent, 64-bit atomic/volatile ops
 
     private readonly GameSettings _settings;
     private GridBuffer _currentGrid;
@@ -22,22 +17,22 @@ internal class SimulationEngine : IDisposable
     private readonly bool[] _initialCells;
 
     private readonly Lock _updateLock = new();  // fast lock for cell updates
-    private readonly Lock _statsLock = new();  // slow lock for statistics updates
 
     // for statistics display
     private long _generationCount;
     private long _updatesThisSecond;
     private long _updatesPerSecond;
-    private long _threadsThisSecond;
-    private long _threadsPerSecond;
+    private long _cellsThisSecond;
+    private long _cellsPerSecond;
     private long _livingCellsCount;
-    private DateTime _lastRateUpdate = DateTime.Now;
+    private readonly int _maxNeighbours;
+    private long _lastRateTimestamp = Environment.TickCount64;
 
     private readonly int _threadCount;
     private readonly Thread[] _workers;
     private readonly Barrier _barrier; // synchronize start and end of workers
     private bool _isDisposed;
-    private long _globalLivingCells;
+    private long _nextLivingCells;
 
     // Delegate for allocation-less execution
     private delegate void StepDelegate(int startY, int endY);
@@ -49,7 +44,7 @@ internal class SimulationEngine : IDisposable
         _currentGrid = new GridBuffer(settings.Width, settings.Height, settings.Toroidal);
         _nextGrid = new GridBuffer(settings.Width, settings.Height, settings.Toroidal);
         _initialCells = new bool[settings.Width * settings.Height];
-        MaxNeighbours = NeighbourhoodFactory.GetMaxNeighbours(settings.NeighbourType);
+        _maxNeighbours = NeighbourhoodFactory.GetMaxNeighbours(settings.NeighbourType);
 
         ResolveUpdateMethod(settings.RuleType, settings.NeighbourType);
         _threadCount = Environment.ProcessorCount;
@@ -58,16 +53,26 @@ internal class SimulationEngine : IDisposable
         InitWorkerThreads();
     }
 
+    public SimulationStats GetStats()
+    {
+        return new SimulationStats(
+            Volatile.Read(ref _generationCount),
+            Volatile.Read(ref _updatesPerSecond),
+            Volatile.Read(ref _cellsPerSecond),
+            Volatile.Read(ref _livingCellsCount),
+            _maxNeighbours
+        );
+    }
+
     public void UpdatePattern()
     {
         lock (_updateLock)
         {
-            _globalLivingCells = 0;
+            _nextLivingCells = 0;
             _barrier.SignalAndWait();  // wake up the workers
             _barrier.SignalAndWait();  // wait for the workers
-            Interlocked.Add(ref _threadsThisSecond, _currentGrid.Height);
             (_nextGrid, _currentGrid) = (_currentGrid, _nextGrid);
-            Volatile.Write(ref _livingCellsCount, _globalLivingCells);
+            Volatile.Write(ref _livingCellsCount, _nextLivingCells);
             Interlocked.Increment(ref _generationCount);
             Interlocked.Increment(ref _updatesThisSecond);
             TrackRates();
@@ -126,8 +131,8 @@ internal class SimulationEngine : IDisposable
             Volatile.Write(ref _generationCount, 0);
             Volatile.Write(ref _updatesThisSecond, 0);
             Volatile.Write(ref _updatesPerSecond, 0);
-            Volatile.Write(ref _threadsThisSecond, 0);
-            Volatile.Write(ref _threadsPerSecond, 0);
+            Volatile.Write(ref _cellsThisSecond, 0);
+            Volatile.Write(ref _cellsPerSecond, 0);
 
             long initialLivingCount = 0;
             for (int i = 0; i < _initialCells.Length; i++)
@@ -135,7 +140,7 @@ internal class SimulationEngine : IDisposable
                 if (_initialCells[i]) initialLivingCount++;
             }
             Volatile.Write(ref _livingCellsCount, initialLivingCount);
-            _lastRateUpdate = DateTime.Now;
+            _lastRateTimestamp = Environment.TickCount64;
         }
     }
 
@@ -145,6 +150,12 @@ internal class SimulationEngine : IDisposable
         {
             if (_isDisposed) return;
             _isDisposed = true;
+            _barrier.SignalAndWait();
+            try
+            {
+                _barrier.SignalAndWait();
+            }
+            catch { /* ignore */ }
             _barrier.Dispose();
         }
     }
@@ -178,10 +189,7 @@ internal class SimulationEngine : IDisposable
                 _barrier.SignalAndWait();  // main thread waits for that
             }
         }
-        catch (ObjectDisposedException)
-        {
-            // intended exit path, no problem
-        }
+        catch (ObjectDisposedException) { /* ignore */ }
     }
 
     private void ResolveUpdateMethod(CellularRuleType ruleType, NeighbourhoodType neighbourType)
@@ -224,25 +232,19 @@ internal class SimulationEngine : IDisposable
                 if (nextState) localLivingCells++;
             }
         }
-        Interlocked.Add(ref _globalLivingCells, localLivingCells);
+        Interlocked.Add(ref _nextLivingCells, localLivingCells);
+        int processedCells = (endY - startY) * width;
+        Interlocked.Add(ref _cellsThisSecond, processedCells);
     }
 
     private void TrackRates()
     {
-        DateTime now = DateTime.Now;
-        if ((now - _lastRateUpdate).TotalSeconds >= 1.0)
-        {
-            lock (_statsLock)
-            {
-                if ((now - _lastRateUpdate).TotalSeconds >= 1.0)
-                {
-                    Volatile.Write(ref _updatesPerSecond, Volatile.Read(ref _updatesThisSecond));
-                    Volatile.Write(ref _updatesThisSecond, 0);
-                    Volatile.Write(ref _threadsPerSecond, Volatile.Read(ref _threadsThisSecond));
-                    Volatile.Write(ref _threadsThisSecond, 0);
-                    _lastRateUpdate = now;
-                }
-            }
-        }
+        long now = Environment.TickCount64;
+        if ((now - _lastRateTimestamp) < 1000 /* ms */) return;
+        _lastRateTimestamp = now;
+        Volatile.Write(ref _updatesPerSecond, Volatile.Read(ref _updatesThisSecond));
+        Volatile.Write(ref _updatesThisSecond, 0);
+        Volatile.Write(ref _cellsPerSecond, Volatile.Read(ref _cellsThisSecond));
+        Volatile.Write(ref _cellsThisSecond, 0);
     }
 }
