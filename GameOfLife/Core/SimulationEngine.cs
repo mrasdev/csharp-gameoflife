@@ -242,9 +242,9 @@ internal class SimulationEngine : IDisposable
         long now = Environment.TickCount64;
         if ((now - _lastRateTimestamp) < 1000 /* ms */) return;
         _lastRateTimestamp = now;
-        Volatile.Write(ref _updatesPerSecond, Volatile.Read(ref _updatesThisSecond));
+        Volatile.Write(ref _updatesPerSecond, _updatesThisSecond);
         Volatile.Write(ref _updatesThisSecond, 0);
-        Volatile.Write(ref _cellsPerSecond, Volatile.Read(ref _cellsThisSecond));
+        Volatile.Write(ref _cellsPerSecond, _cellsThisSecond);
         Volatile.Write(ref _cellsThisSecond, 0);
     }
 }
