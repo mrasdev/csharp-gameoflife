@@ -23,14 +23,14 @@ public class SimulationEngineTests
         var engine = new SimulationEngine(settings);
 
         // Initial state check
-        Assert.Equal(0, engine.GenerationCount);
+        Assert.Equal(0, engine.GetStats().GenerationCount);
 
         // Act & Assert
         engine.UpdatePattern();
-        Assert.Equal(1, engine.GenerationCount);
+        Assert.Equal(1, engine.GetStats().GenerationCount);
 
         engine.UpdatePattern();
-        Assert.Equal(2, engine.GenerationCount);
+        Assert.Equal(2, engine.GetStats().GenerationCount);
     }
 
     // ==========================================
@@ -125,13 +125,13 @@ public class SimulationEngineTests
         engine.UpdatePattern();
 
         // Sanity check that we are actually at generation 3
-        Assert.Equal(3, engine.GenerationCount);
+        Assert.Equal(3, engine.GetStats().GenerationCount);
 
         // Act
         engine.Restart();
 
         // Assert
         // Generation counter must be strictly reset to 0
-        Assert.Equal(0, engine.GenerationCount);
+        Assert.Equal(0, engine.GetStats().GenerationCount);
     }
 }
