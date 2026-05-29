@@ -1,6 +1,8 @@
 # High-Performance Cellular Automata Engine (.NET 9)
 
-A highly optimized, multi-threaded, and **zero-allocation** simulation engine for *Conway's Game of Life* and *HighLife*, built with **.NET 9**. This project leverages low-level optimization techniques, modern C# features, and hardware awareness to maximize execution speed and throughput on modern multi-core CPUs.
+A highly optimized, multi-threaded, and **zero-allocation** simulation engine for *Conway's Game of Life* and *HighLife*, built with **.NET 9**. 
+
+The engine is designed for **maximum throughput on modern multi-core CPUs**, using low-level optimization techniques, cache-friendly memory access patterns, and carefully controlled threading.
 
 ![Screenshot](Screenshot.png "Screenshot")
 
@@ -8,15 +10,79 @@ A highly optimized, multi-threaded, and **zero-allocation** simulation engine fo
 
 ## Performance & Architecture Highlights
 
-This engine was architected from the ground up to eliminate common managed-runtime overheads:
+This engine was built with a strong focus on **predictable performance, zero GC overhead, and CPU efficiency**:
 
-* **Zero Allocations (0 Bytes Heap Allocation):** Once the initialization phase is complete, the main simulation loop performs zero heap allocations. This completely eliminates Garbage Collection (GC) latency and pauses, ensuring rock-solid, fluid execution.
-* **Dedicated Worker Threads & Zero-Alloc Threading:** Instead of relying on the standard .NET ThreadPool or `Parallel.For` (which incur task-scheduling overhead, object allocations, and closure-based latency), the engine spins up permanent, dedicated background threads matching `Environment.ProcessorCount`. These threads remain alive for the application's entire lifecycle, eliminating thread creation costs during runtime.
-* **Low-Level Barrier Synchronization:** Precise coordination between the orchestrating simulation thread and the active computing threads is achieved via a hardware-friendly `System.Threading.Barrier` structure. Operating in a lightweight two-phase cycle (Start/Finish), it blocks idle threads at the kernel level without wasting CPU cycles or generating heap debris.
-* **Compile-Time Polymorphism via Struct Constraints:** Instead of using traditional object-oriented interfaces (`ICellularRule` and `INeighbourhoodStrategy`) which incur virtual method invocation overhead (vtable lookups), rules and neighborhood typologies are implemented as **`structs`**. By passing them into the core engine via generic constraints (`where TRule : struct`), the .NET JIT compiler performs **Aggressive Inlining**, embedding the logic directly into the processing loop.
-* **Branchless Logical Execution:** The state transitions for cells (`ConwayRule` and `HighLifeRule`) are computed using mathematical bitwise operations (`BornMask`, `SurviveMask`, `XorMask`) rather than conditional jumps (`if-else`). This eliminates CPU branch mispredictions, maintaining a highly deterministic execution pipeline.
-* **Double Buffering via Pointer Swap:** The grid is represented as a contiguous, flat 1D array wrapped in a specialized `GridBuffer`. To compute the next generation, the engine reads from the current buffer and writes to the next. At the end of a cycle, a high-speed reference swap occurs without copying underlying array elements.
-* **Cache Locality & Thread-Safe Chunking:** The grid is partitioned statically into distinct, continuous row blocks (chunks) assigned to individual worker threads. Threads accumulate cell changes onto local variables inside their private CPU stack framework, completely neutralizing the performance-destroying effects of *False Sharing* in the L1/L2 caches.
+### Zero Allocations (Hot Path)
+- After initialization, the simulation loop performs **no heap allocations**
+- Eliminates GC pauses completely
+- Ensures stable frame timing
+
+---
+
+### Dedicated Worker Threads
+- Fixed number of background threads (`Environment.ProcessorCount`)
+- No ThreadPool, no `Parallel.For`
+- No task scheduling overhead
+- Threads remain alive for the full application lifecycle
+
+---
+
+### Barrier-Based Synchronization
+- Uses `System.Threading.Barrier` for precise coordination
+- Two-phase execution model:
+  1. Start work
+  2. Wait for completion
+- No busy-waiting, no polling
+
+---
+
+### Compile-Time Polymorphism
+- Uses `struct`-based generics instead of virtual calls:
+  ```csharp
+  UpdatePatternGeneric<TRule, TStrategy>
+ 
+ 
+### Compile-Time Polymorphism
+```csharp
+UpdatePatternGeneric<TRule, TStrategy>
+```
+
+- Uses `struct` constraints instead of virtual calls
+- Fully inlined by the JIT
+- Zero dispatch overhead
+
+---
+
+### Branchless Rule Execution
+- Uses bitwise operations instead of `if`/`else`
+- Eliminates branch prediction penalties
+
+---
+
+### Double Buffering
+- Reads from `_currentGrid`
+- Writes to `_nextGrid`
+- Swaps references each tick
+
+```csharp
+(_nextGrid, _currentGrid) = (_currentGrid, _nextGrid);
+```
+
+---
+
+### Cache-Friendly Layout
+- Flat `bool[]` array
+- Row-based chunking per thread
+- No false sharing
+
+---
+
+### High-Performance Statistics
+- Lock-free (`Interlocked`, `Volatile`)
+- Snapshot-based via `GetStats()`
+- Timing via `Environment.TickCount64`
+
+
 
 ---
 
